@@ -1,0 +1,2 @@
+export interface CompletedItemRecord { requirementName: string; completionDate: Date; instructor?: string; }
+export interface Upgrader { id: string; sharpName: string; displayName: string; startDate: Date; assignedSyllabus: { position: string; level: number; year: string; }; pqsCompleted: CompletedItemRecord[]; eventsCompleted: CompletedItemRecord[]; derivedPqsWorkingLevel?: number; derivedEventsWorkingLevel?: number; /* ... */ }
