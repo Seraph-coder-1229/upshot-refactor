@@ -5,6 +5,10 @@ export interface CurveDeadlineSetting {
   deadlineMonths: number;
 }
 
+export interface PositionLevelDeadlines {
+  [level: number]: CurveDeadlineSetting; // e.g., 200: { target: 6, deadline: 12 }
+}
+
 export interface TrainingDepartmentPersonnelSetting {
   squadron: string | null;
   departmentHead: string | null;
@@ -17,7 +21,8 @@ export interface TrainingDepartmentPersonnelSetting {
 export interface AppConfig {
   version: number;
   curveDeadlines: {
-    [syllabusTrackKey: string]: CurveDeadlineSetting;
+    // Key is the position string (e.g., "PILOT", "NFO", "EWO", "AAW")
+    [positionKey: string]: PositionLevelDeadlines;
   };
   useRoundedTrainingStartDate: boolean;
   // ... other config properties ...

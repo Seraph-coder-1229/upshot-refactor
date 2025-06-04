@@ -2,7 +2,7 @@
 import { saveAs } from "file-saver";
 import { useAppConfigStore } from "../stores/appConfigStore"; // To get app config for export
 // import { useUiStore } from '../stores/uiStore'; // Potentially to get loaded file names later
-
+import { APP_VERSION, MAX_LOG_ENTRIES } from "../config/constants";
 // Define a simple structure for log entries
 interface LogEntry {
   timestamp: string;
@@ -11,8 +11,6 @@ interface LogEntry {
   details?: any;
 }
 
-const APP_VERSION = "0.1.0-alpha"; // Define your app version
-const MAX_LOG_ENTRIES = 1000;
 let logEntries: LogEntry[] = [];
 let isInitialized = false;
 

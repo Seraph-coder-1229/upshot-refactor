@@ -153,14 +153,14 @@ A help section/modal within the application will provide:
 * [X] Implement and integrate AppNotifications.vue and CriticalErrorDisplay.vue.
 
 ## Phase 2: Application Configuration System
-* [ ] Implement src/config/appConfigDefaults.ts.
-* [ ] Implement src/stores/appConfigStore.ts (load from window.UPSHOT_USER_APP_CONFIG or defaults, download action, dirty flag).
-* [ ] Create src/components/specific/ConfigEditor.vue.
-* [ ] Add UI for "Download App Config" & user instructions for persistence.
+* [X] Implement src/config/appConfigDefaults.ts.
+* [X] Implement src/stores/appConfigStore.ts (load from window.UPSHOT_USER_APP_CONFIG or defaults, download action, dirty flag).
+* [X] Create src/components/specific/ConfigEditor.vue.
+* [X] Add UI for "Download App Config" & user instructions for persistence.
 
 ## Phase 3: Syllabus Management
-* [ ] Implement src/config/syllabiDefaults.ts.
-* [ ] Implement src/stores/syllabiStore.ts (load from window.UPSHOT_USER_SYLLABI or defaults, CRUD, download, dirty flag).
+* [X] Implement src/config/syllabiDefaults.ts.
+* [X] Implement src/stores/syllabiStore.ts (load from window.UPSHOT_USER_SYLLABI or defaults, CRUD, download, dirty flag).
 * [ ] Develop src/components/specific/SyllabusManager/ components.
 * [ ] Add UI for "Download Syllabi" & user instructions for persistence.
 * [ ] (Stretch) Logic for creating new syllabi from SHARP Excel format.
