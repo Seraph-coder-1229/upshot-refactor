@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import { type AppNotification } from "../types/commonTypes";
 import { loggingService } from "../utils/loggingService"; // For logging UI actions if needed
-
+import { NOTIFICATION_TIME } from "@/config/constants";
 export const useUiStore = defineStore("ui", {
   state: () => ({
     notifications: [] as AppNotification[],
@@ -17,6 +17,10 @@ export const useUiStore = defineStore("ui", {
      */
     addNotification(notification: Omit<AppNotification, "id">) {
       const id = this.nextNotificationId++;
+      // const duration = 0;
+      // if (notification.duration) {
+      //   duration = NOTIFICATION_TIME[notification.type]
+      // }
       const newNotification: AppNotification = { ...notification, id };
 
       this.notifications.push(newNotification);

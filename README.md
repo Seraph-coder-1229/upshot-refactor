@@ -161,7 +161,7 @@ A help section/modal within the application will provide:
 ## Phase 3: Syllabus Management
 * [X] Implement src/config/syllabiDefaults.ts.
 * [X] Implement src/stores/syllabiStore.ts (load from window.UPSHOT_USER_SYLLABI or defaults, CRUD, download, dirty flag).
-* [ ] Develop src/components/specific/SyllabusManager/ components.
+* [X] Develop src/components/specific/SyllabusManager/ components.
 * [ ] Add UI for "Download Syllabi" & user instructions for persistence.
 * [ ] (Stretch) Logic for creating new syllabi from SHARP Excel format.
 

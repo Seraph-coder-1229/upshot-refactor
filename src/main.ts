@@ -1,5 +1,6 @@
 import { createApp, type App as VueApp } from "vue";
 import { createPinia } from "pinia";
+import router from "./router";
 
 import App from "./App.vue";
 
@@ -21,6 +22,7 @@ const app = createApp(App);
 // --- 3. Create and Use Pinia for State Management ---
 const pinia = createPinia();
 app.use(pinia);
+app.use(router);
 
 // Make stores available after Pinia is used by the app, especially if they are used by global handlers
 // It's often cleaner if global error handlers call loggingService directly,
