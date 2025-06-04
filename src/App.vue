@@ -1,14 +1,16 @@
 <template>
   <AppNotifications />
-  <div>
-    <CriticalErrorDisplay v-if="uiStore.criticalError" />
-    <AppLayout v-else>
+
+  <template v-if="uiStore.criticalError">
+    <CriticalErrorDisplay />
+  </template>
+  <template v-else>
+    <AppLayout>
       <div class="container mx-auto p-4 space-y-6">
         <header class="text-center"></header>
 
         <div v-if="uiStore.isLoading" class="text-center p-4">
           <p class="text-blue-600 font-semibold">Loading...</p>
-          {/* Basic global loading indicator */}
         </div>
 
         <section
@@ -18,9 +20,6 @@
           <h2 class="text-lg font-semibold mb-2">
             Config Management (Placeholder)
           </h2>
-          <p class="text-sm text-gray-600">
-            Config editor and load/save buttons will go here.
-          </p>
         </section>
 
         <section
@@ -28,9 +27,6 @@
           class="p-4 border rounded-lg shadow bg-gray-50"
         >
           <h2 class="text-lg font-semibold mb-2">File Uploads (Placeholder)</h2>
-          <p class="text-sm text-gray-600">
-            Personnel & SHARP file uploaders will go here.
-          </p>
         </section>
 
         <section
@@ -40,9 +36,6 @@
           <h2 class="text-lg font-semibold mb-2">
             Main Data Display (Placeholder)
           </h2>
-          <p class="text-sm text-gray-600">
-            Reports, charts, and upgrader progress will be displayed here.
-          </p>
         </section>
 
         <footer class="app-footer text-center mt-8 py-4 border-t">
@@ -61,7 +54,7 @@
         </footer>
       </div>
     </AppLayout>
-  </div>
+  </template>
 </template>
 
 <script setup lang="ts">
@@ -130,7 +123,7 @@ onMounted(() => {
   uiStore.addNotification({
     message: "Application loaded. Welcome!",
     type: "success",
-    duration: 3000,
+    duration: 2000,
   }); //
 });
 
@@ -157,7 +150,7 @@ onBeforeUnmount(() => {
 // };
 </script>
 
-<style>
+<style scoped>
 /* You can add global styles here if not handled by tailwind.css,
    but prefer Tailwind utilities or tailwind.css for base styles. */
 body {

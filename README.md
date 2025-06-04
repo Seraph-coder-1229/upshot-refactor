@@ -149,8 +149,8 @@ A help section/modal within the application will provide:
     * [X] flightHoursTypes.ts (initial stubs)
     * [X] commonTypes.ts (AppNotification, etc.)
 * [X] Implement src/utils/loggingService.ts (including enhanced debug report content).
-* [ ] Implement src/stores/uiStore.ts (notifications, global loading, critical error display).
-* [ ] Implement and integrate AppNotifications.vue and CriticalErrorDisplay.vue.
+* [X] Implement src/stores/uiStore.ts (notifications, global loading, critical error display).
+* [X] Implement and integrate AppNotifications.vue and CriticalErrorDisplay.vue.
 
 ## Phase 2: Application Configuration System
 * [ ] Implement src/config/appConfigDefaults.ts.
