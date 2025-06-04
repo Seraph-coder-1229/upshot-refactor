@@ -5,14 +5,24 @@ export interface CurveDeadlineSetting {
   deadlineMonths: number;
 }
 
+export interface TrainingDepartmentPersonnelSetting {
+  squadron: string | null;
+  departmentHead: string | null;
+  pilotLead: string | null;
+  nfoLead: string | null;
+  aawLead: string | null;
+  ewoLead: string | null;
+}
+
 export interface AppConfig {
   version: number;
   curveDeadlines: {
     [syllabusTrackKey: string]: CurveDeadlineSetting;
   };
-  isRoundStartDateFixed: boolean;
-  fixedRoundStartDate: string | null; // YYYY-MM-DD format if fixed
+  useRoundedTrainingStartDate: boolean;
   // ... other config properties ...
+
+  trainingDepartment: TrainingDepartmentPersonnelSetting;
 }
 
 // ==> This is the crucial part for making it known globally <==

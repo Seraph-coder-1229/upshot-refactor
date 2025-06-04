@@ -1,38 +1,45 @@
-// src/types/syllabiTypes.ts
 import { type Identifiable, type Named } from "./commonTypes";
 
+export type RequirementType = "PQS" | "Event";
+
 export interface Requirement extends Identifiable, Named {
-  // id will be requirement.name for uniqueness within a syllabus
-  // name is the official/SHARP name
-  // displayName is for UI
+  requirementType: RequirementType;
   prerequisites: string[]; // Array of other requirement 'name's (or 'id's)
-  difficulty?: number; // User-assigned difficulty score/level
-  isDefaultWaived?: boolean; // True if this item is generally waived for this syllabus by definition
-  // category?: string; // e.g., "Systems", "Tactics", "Safety"
-  // points?: number;
+  difficulty?: number;
+  isDefaultWaived?: boolean;
 }
 
 export interface Syllabus extends Identifiable, Named {
-  // id could be a composite key: e.g., `${position}-${year}-l${level}-${type}`
-  // name/title would be the user-friendly syllabus title (e.g., "PPC P8 PQS 2025")
-  // displayName might be redundant if title is used.
-  position: string; // e.g., "pilot", "nfo", "ewo", "awo", "AAW"
-  level: number; // e.g., 200, 300, 400
-  year: string; // Syllabus promulgation year, e.g., "2023", "2025"
-  type: "pqs" | "events";
-  pqsVersionRef?: string; // Matches "PQS VER" from SHARP Col B, if applicable for this syllabus
+  position: string;
+  level: number;
+  year: string;
+  // 'type' (pqs/events) is now on Requirement
+  pqsVersionRef?: string;
   requirements: Requirement[];
-
-  // Goal timeline properties (these can be part of AppConfig or overridden here)
   wingGoalMonths: number;
   squadronGoalMonths: number;
-  goalStartMonthsOffset?: number; // Default offset from upgrader start for goal curves
-  // Can be overridden by specific wing/squadron start months below
-  wingGoalStartMonthsOverride?: number;
-  squadronGoalStartMonthsOverride?: number;
+  goalStartMonthsOffset?: number;
 }
 
-// Augment the global Window interface for user-provided syllabi
+// This record links a Requirement from a Syllabus to actual completion data
+export interface CompletedItemRecord {
+  requirementId: string; // Matches Requirement.id (or Requirement.name)
+  requirementDisplayName: string;
+  requirementType: RequirementType; // 'PQS' or 'Event'
+
+  completionDate: Date; // From SHARP "Date Received" sheet
+  instructor?: string | null; // From SHARP "Instructor" sheet
+  grade?: string | number | null; // From SHARP "Grade" sheet
+  statusRaw?: string | null; // Raw code from SHARP "Status" sheet cell (e.g., "PSO")
+  statusResolved?: string | null; // Full description (e.g., "Pass - Signed Off", "Failed", "Waived")
+
+  // How was this item 'completed'?
+  isActualCompletion: boolean; // True if there's a completionDate and positive status
+  isSyllabusWaived?: boolean; // True if Requirement.isDefaultWaived and no contradictory SHARP status
+  isIndividuallyWaived?: boolean; // True if SHARP status specifically indicates "Waived"
+}
+
+// Global augmentation for window.UPSHOT_USER_SYLLABI (if not in a separate globals.d.ts)
 declare global {
   interface Window {
     UPSHOT_USER_SYLLABI?: Syllabus[];
