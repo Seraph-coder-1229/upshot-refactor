@@ -1,11 +1,3 @@
-// Augment window for global config variables if not done elsewhere for stores
-declare global {
-    interface Window {
-      UPSHOT_USER_APP_CONFIG?: any; // Basic type for now
-      UPSHOT_USER_SYLLABI?: any[]; // Basic type for now
-    }
-  }
-  
   export const loggingService = {
     init: () => {
       console.log('[STUB] Logging Service Initialized');
