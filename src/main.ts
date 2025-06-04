@@ -6,6 +6,8 @@ import App from './App.vue';
 // Import global styles (Tailwind CSS)
 import './assets/css/tailwind.css'; // Ensure this path is correct
 
+
+
 // Import Logging Service and UI Store (and other stores if needed at init)
 import { loggingService } from './utils/loggingService';
 import { useUiStore } from './stores/uiStore';
