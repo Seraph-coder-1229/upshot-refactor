@@ -1,6 +1,10 @@
-import { defineStore } from 'pinia';
+import { defineStore } from "pinia";
 
-export const useProgressStore = defineStore('progress', {
-  state: () => ({ /* ... */ }),
-  actions: { /* ... */ }
+export const useProgressStore = defineStore("progress", {
+  state: () => ({
+    /* ... */
+  }),
+  actions: {
+    /* ... */
+  },
 });

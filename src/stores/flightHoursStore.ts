@@ -1,6 +1,10 @@
-import { defineStore } from 'pinia';
+import { defineStore } from "pinia";
 
-export const useFlightHoursStore = defineStore('flightHours', {
-  state: () => ({ /* ... */ }),
-  actions: { /* ... */ }
+export const useFlightHoursStore = defineStore("flightHours", {
+  state: () => ({
+    /* ... */
+  }),
+  actions: {
+    /* ... */
+  },
 });

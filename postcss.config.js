@@ -1,6 +1,8 @@
-module.exports = {
+// postcss.config.js
+export default {
+  // Or module.exports for CommonJS
   plugins: {
-    tailwindcss: {}, // Or require('tailwindcss') if that form is used
-    autoprefixer: {},  // Or require('autoprefixer')
+    "@tailwindcss/postcss": {}, // Use the new package
+    autoprefixer: {},
   },
 };

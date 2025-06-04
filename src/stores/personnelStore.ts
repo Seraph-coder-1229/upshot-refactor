@@ -1,7 +1,9 @@
-import { defineStore } from 'pinia';
-import { type Upgrader } from '../types/personnelTypes';
+import { defineStore } from "pinia";
+import { type Upgrader } from "../types/personnelTypes";
 
-export const usePersonnelStore = defineStore('personnel', {
+export const usePersonnelStore = defineStore("personnel", {
   state: () => ({ allPersonnel: [] as Upgrader[] }),
-  actions: { /* ... */ }
+  actions: {
+    /* ... */
+  },
 });
