@@ -16,6 +16,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@tailwindcss/cli": "^4.1.8",
     "@types/file-saver": "^2.0.7",
     "@typescript-eslint/eslint-plugin": "^5.4.0",
     "@typescript-eslint/parser": "^5.4.0",
@@ -24,15 +25,16 @@
     "@vue/cli-plugin-typescript": "~5.0.0",
     "@vue/cli-service": "~5.0.0",
     "@vue/eslint-config-typescript": "^9.1.0",
+    "autoprefixer": "^10.4.21",
     "eslint": "^7.32.0",
     "eslint-config-prettier": "^8.3.0",
     "eslint-plugin-prettier": "^4.0.0",
     "eslint-plugin-vue": "^8.0.3",
+    "postcss": "^8.5.4",
     "prettier": "^2.4.1",
     "sass": "^1.32.7",
     "sass-loader": "^12.0.0",
-    "tailwindcss": "^0.6.1",
-    "typescript": "~4.5.5",
-    "vue-cli-plugin-tailwindcss": "~0.1.1"
+    "tailwindcss": "^4.1.8",
+    "typescript": "~4.5.5"
   }
 }
