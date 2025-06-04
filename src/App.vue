@@ -1,17 +1,14 @@
 <template>
   <AppNotifications />
-  <template v-if="uiStore.criticalError">
-    <CriticalErrorDisplay />
-  </template>
-  <template v-else>
-    <AppLayout>
-      
+  <div>
+    <CriticalErrorDisplay v-if="uiStore.criticalError" />
+    <AppLayout v-else>
       <div class="container mx-auto p-4 space-y-6">
         <header class="text-center"></header>
 
         <div v-if="uiStore.isLoading" class="text-center p-4">
           <p class="text-blue-600 font-semibold">Loading...</p>
-          
+          {/* Basic global loading indicator */}
         </div>
 
         <section
@@ -64,7 +61,7 @@
         </footer>
       </div>
     </AppLayout>
-  </template>
+  </div>
 </template>
 
 <script setup lang="ts">
