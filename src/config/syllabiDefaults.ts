@@ -14,10 +14,6 @@ const examplePqsRequirement: Requirement = {
   prerequisites: [],
   isMandatory: true,
   isDefaultWaived: false,
-  academicHours: 1,
-  deviceHours: 0,
-  flightHoursAssociated: 0,
-  eventCreditValue: 5,
 };
 
 // Example of a very basic default Event requirement
@@ -30,8 +26,6 @@ const exampleEventRequirement: Requirement = {
   prerequisites: ["DEFAULT_PQS_001"], // Depends on the PQS above
   isMandatory: true,
   isDefaultWaived: false,
-  deviceHours: 2,
-  eventCreditValue: 10,
 };
 
 // Define a default syllabus structure
@@ -47,6 +41,7 @@ const exampleDefaultSyllabus: Syllabus = {
   wingGoalMonths: 12,
   squadronGoalMonths: 9,
   goalStartMonthsOffset: 0,
+  masterSyllabusIdentifier: null,
 };
 
 // Export the default syllabi array

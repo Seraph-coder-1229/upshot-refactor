@@ -1,51 +1,75 @@
+// src/views/SyllabusManagementView.vue
+
 <template>
-  <div class="p-4">
+  <div class="syllabus-management-view container mx-auto py-4">
     <SyllabusList
-      @edit-syllabus="openEditForm"
-      @add-new-syllabus="openNewForm"
+      @edit-syllabus="openEditSyllabusForm"
+      @add-new-syllabus="openNewSyllabusForm"
     />
 
-    <BaseModal :is-open="isFormVisible" @close="closeForm">
-      <SyllabusDetailForm
-        v-if="isFormVisible"
-        :is-new="isNewSyllabus"
-        :syllabus-id="editingSyllabusId"
-        @close-form="closeForm"
-        @syllabus-saved="handleSyllabusSaved"
-      />
+    <BaseModal
+      v-if="isSyllabusFormVisible"
+      :is-open="isSyllabusFormVisible"
+      @close="closeSyllabusForm"
+      title="Syllabus Details"
+      size="2xl"
+    >
+      <template #body>
+        <SyllabusDetailForm
+          :is-new="isNewSyllabusMode"
+          :syllabus-id="selectedSyllabusIdForEdit"
+          @close-form="closeSyllabusForm"
+          @syllabus-saved="handleSyllabusFormSaved"
+        />
+      </template>
     </BaseModal>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from "vue";
-import SyllabusList from "@/components/specific/SyllabusManager/SyllabusList.vue";
-import SyllabusDetailForm from "@/components/specific/SyllabusManager/SyllabusDetailForm.vue";
-import BaseModal from "@/components/ui/BaseModal.vue"; // Assuming you have a BaseModal component
+import SyllabusList from "@/components/specific/SyllabusManager/SyllabusList.vue"; // Adjust path if not using @ alias
+import SyllabusDetailForm from "@/components/specific/SyllabusManager/SyllabusDetailForm.vue"; // Adjust path
+import BaseModal from "@/components/ui/BaseModal.vue"; // Adjust path
 
-const isFormVisible = ref(false);
-const isNewSyllabus = ref(false);
-const editingSyllabusId = ref<string | null>(null);
+// --- Declare your reactive state variables here ---
+const isSyllabusFormVisible = ref(false);
+const isNewSyllabusMode = ref(false);
+const selectedSyllabusIdForEdit = ref<string | null>(null);
+// --- End of reactive state declarations ---
 
-const openEditForm = (syllabusId: string) => {
-  editingSyllabusId.value = syllabusId;
-  isNewSyllabus.value = false;
-  isFormVisible.value = true;
+const openEditSyllabusForm = (syllabusId: string) => {
+  console.log("View: Opening edit form for syllabusId:", syllabusId);
+  selectedSyllabusIdForEdit.value = syllabusId;
+  isNewSyllabusMode.value = false;
+  // Before making visible, ensure the props are correct for the form
+  console.log(
+    "View: Props to be passed -> isNew:",
+    isNewSyllabusMode.value,
+    "id:",
+    selectedSyllabusIdForEdit.value
+  );
+  isSyllabusFormVisible.value = true;
 };
 
-const openNewForm = () => {
-  editingSyllabusId.value = null;
-  isNewSyllabus.value = true;
-  isFormVisible.value = true;
+const openNewSyllabusForm = () => {
+  selectedSyllabusIdForEdit.value = null; // No ID when creating new
+  isNewSyllabusMode.value = true;
+  isSyllabusFormVisible.value = true;
 };
 
-const closeForm = () => {
-  isFormVisible.value = false;
-  editingSyllabusId.value = null;
+const closeSyllabusForm = () => {
+  isSyllabusFormVisible.value = false;
+  selectedSyllabusIdForEdit.value = null; // Clear ID when form closes
 };
 
-const handleSyllabusSaved = (savedSyllabusId: string) => {
-  // Optionally refresh list or navigate
-  closeForm();
+const handleSyllabusFormSaved = (/* savedSyllabusId: string */) => {
+  // Optionally refresh list or perform other actions
+  closeSyllabusForm();
+  // Potentially add a success notification via uiStore
 };
 </script>
+
+<style scoped>
+/* Add styles specific to this view if needed */
+</style>

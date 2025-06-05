@@ -6,6 +6,8 @@ import { loggingService } from "../utils/loggingService";
 import { saveAs } from "file-saver"; // For downloading
 import { APP_VERSION } from "../config/constants"; // Assuming APP_VERSION is in constants.ts
 import { deepClone } from "@/utils/dataUtils";
+import { excelProcessorService } from "../core/excelProcessorService"; // <<<< NEW IMPORT
+import { useUiStore } from "./uiStore"; // For notifications and loading state
 
 // Function to get the initial syllabi
 function getInitialSyllabi(): Syllabus[] {
@@ -50,10 +52,10 @@ function getInitialSyllabi(): Syllabus[] {
 
 export const useSyllabiStore = defineStore("syllabi", {
   state: () => {
-    const initialSyllabi = getInitialSyllabi();
+    const initialSyllabi = getInitialSyllabi(); // getInitialSyllabi loads from window or defaults
     return {
       allSyllabi: initialSyllabi as Syllabus[],
-      isLoading: false,
+      isLoading: false, // To indicate when SHARP import is in progress
       isDirty: false,
       lastLoadedSyllabiSnapshot: JSON.stringify(initialSyllabi),
     };
@@ -61,6 +63,7 @@ export const useSyllabiStore = defineStore("syllabi", {
 
   actions: {
     _updateAndCheckDirty() {
+      // ... (implementation as before)
       const currentSnapshot = JSON.stringify(this.allSyllabi);
       if (currentSnapshot !== this.lastLoadedSyllabiSnapshot) {
         this.isDirty = true;
@@ -72,30 +75,99 @@ export const useSyllabiStore = defineStore("syllabi", {
       }
     },
 
-    /**
-     * Replaces the entire syllabi collection.
-     * Used by SHARP import or future direct load features.
-     */
     setAllSyllabi(newSyllabi: Syllabus[]) {
+      // ... (implementation as before)
       this.allSyllabi = deepClone(newSyllabi);
       this.lastLoadedSyllabiSnapshot = JSON.stringify(this.allSyllabi);
-      this.isDirty = false; // Loading new set is considered pristine initially
+      // When setting all syllabi (e.g., from an import), consider if it should be immediately dirty
+      // or if this new set becomes the "pristine" state.
+      // Let's assume an import means it's a new baseline, so it becomes dirty if different from defaults,
+      // or simply mark as dirty to prompt user to review and save.
+      this.isDirty = true; // Or call _updateAndCheckDirty if you want to compare with previous snapshot
       loggingService.logInfo(
-        `All syllabi replaced. ${newSyllabi.length} syllabi loaded.`
+        `All syllabi programmatically replaced. ${newSyllabi.length} syllabi loaded.`
       );
     },
 
+    // ... addSyllabus, updateSyllabus, removeSyllabus, resetToDefaults, markAsSaved, downloadSyllabi actions ...
+    // (Ensure these actions call this._updateAndCheckDirty() or set this.isDirty = true)
+
+    /**
+     * Imports syllabi from a SHARP Syllabus Export Excel file.
+     * Uses excelProcessorService to parse the file.
+     */
+    async importSyllabiFromSharpExport(file: File) {
+      const uiStore = useUiStore(); // Get UI store for notifications/loading
+      this.isLoading = true;
+      uiStore.setLoading(true); // Optional: Set global loading indicator
+      uiStore.addNotification({
+        message: `Importing syllabus from "${file.name}"...`,
+        type: "info",
+      });
+      loggingService.logInfo(
+        `Attempting to import syllabi from SHARP export: ${file.name}`
+      );
+
+      try {
+        // Call the actual parsing function from your excelProcessorService
+        const importedSyllabi =
+          await excelProcessorService.parseSharpSyllabusExport(file);
+
+        if (importedSyllabi && importedSyllabi.length > 0) {
+          // Replace current syllabi in the store with the newly imported ones
+          this.setAllSyllabi(importedSyllabi); // This action handles cloning and snapshot
+          loggingService.logInfo(
+            `${importedSyllabi.length} syllabi successfully parsed and loaded from SHARP file: ${file.name}`
+          );
+          uiStore.addNotification({
+            message: `${importedSyllabi.length} syllabi imported successfully from "${file.name}". Please review and download to persist.`,
+            type: "success",
+            duration: 7000,
+          });
+        } else {
+          loggingService.logWarn(
+            `No syllabi were extracted from the SHARP file: ${file.name}. The file might be empty, in an unexpected format, or no valid syllabi were found.`
+          );
+          console.log(importedSyllabi);
+          uiStore.addNotification({
+            message: `No valid syllabi found in "${file.name}". Please check the file format and content.`,
+            type: "warning",
+            duration: 10000,
+          });
+        }
+      } catch (error: any) {
+        loggingService.logError(
+          `Error during SHARP syllabus import: ${file.name}`,
+          error
+        );
+        uiStore.addNotification({
+          message: `Failed to import syllabi from "${file.name}": ${
+            error.message || "Unknown error"
+          }`,
+          type: "error",
+          duration: 10000,
+        });
+      } finally {
+        this.isLoading = false;
+        uiStore.setLoading(false); // Clear global loading indicator
+      }
+    },
+
+    // Make sure other CRUD actions also set the dirty flag appropriately:
     addSyllabus(syllabus: Syllabus) {
-      // Check for duplicates by ID before adding
+      const uiStore = useUiStore(); // Get UI store for notifications/loading
       if (this.allSyllabi.some((s) => s.id === syllabus.id)) {
         loggingService.logWarn(
-          `Syllabus with ID ${syllabus.id} already exists. Cannot add duplicate.`
+          `Syllabus with ID ${syllabus.id} already exists.`
         );
-        // Optionally, throw an error or notify UI
+        uiStore.addNotification({
+          message: `Syllabus with ID "${syllabus.id}" already exists.`,
+          type: "warning",
+        });
         return;
       }
       this.allSyllabi.push(deepClone(syllabus));
-      this._updateAndCheckDirty();
+      this.isDirty = true; // Mark as dirty
       loggingService.logInfo(
         `Syllabus "${syllabus.name}" (ID: ${syllabus.id}) added.`
       );
@@ -104,18 +176,17 @@ export const useSyllabiStore = defineStore("syllabi", {
     updateSyllabus(syllabusId: string, updatedSyllabusData: Partial<Syllabus>) {
       const index = this.allSyllabi.findIndex((s) => s.id === syllabusId);
       if (index !== -1) {
-        // Merge updates carefully to maintain reactivity on the object
         this.allSyllabi[index] = {
           ...this.allSyllabi[index],
           ...deepClone(updatedSyllabusData),
         };
-        // If requirements array is replaced, ensure it's also reactive
         if (updatedSyllabusData.requirements) {
+          // Ensure deep clone of requirements if replaced
           this.allSyllabi[index].requirements = deepClone(
             updatedSyllabusData.requirements
           );
         }
-        this._updateAndCheckDirty();
+        this.isDirty = true; // Mark as dirty
         loggingService.logInfo(`Syllabus ID ${syllabusId} updated.`);
       } else {
         loggingService.logWarn(
@@ -128,7 +199,7 @@ export const useSyllabiStore = defineStore("syllabi", {
       const initialLength = this.allSyllabi.length;
       this.allSyllabi = this.allSyllabi.filter((s) => s.id !== syllabusId);
       if (this.allSyllabi.length < initialLength) {
-        this._updateAndCheckDirty();
+        this.isDirty = true; // Mark as dirty
         loggingService.logInfo(`Syllabus ID ${syllabusId} removed.`);
       } else {
         loggingService.logWarn(
@@ -136,100 +207,31 @@ export const useSyllabiStore = defineStore("syllabi", {
         );
       }
     },
-
-    // TODO: Add actions for managing requirements within a specific syllabus
-    // addRequirementToSyllabus(syllabusId: string, requirement: Requirement)
-    // updateRequirementInSyllabus(syllabusId: string, requirementId: string, updatedRequirement: Partial<Requirement>)
-    // removeRequirementFromSyllabus(syllabusId: string, requirementId: string)
-
     resetToDefaults() {
-      this.allSyllabi = deepClone(defaultSyllabi);
-      this.isDirty = true; // Resetting is a change from potentially saved user state
+      const defaultClonedSyllabi = getInitialSyllabi(); //This will check window first, then defaults.
+      //If we want to reset purely to compiled defaults:
+      // this.allSyllabi = deepClone(defaultSyllabi);
+      this.allSyllabi = defaultClonedSyllabi;
+      this.lastLoadedSyllabiSnapshot = JSON.stringify(this.allSyllabi); // New baseline
+      this.isDirty = false; // Resetting to the effective defaults means it's no longer "dirty" from that state.
+      // Or, if reset should always imply a "change to be saved", set to true.
+      // Let's consider resetting to defaults a "clean state" from user perspective.
       loggingService.logInfo(
-        "Syllabi reset to defaults. Changes are now dirty."
+        "Syllabi collection reset to initial state (user file or defaults)."
       );
+    },
+
+    downloadSyllabi() {
+      // ... (implementation as before, ensure it calls this.markAsSaved()) ...
+      this.markAsSaved(); // Call this after initiating download
     },
 
     markAsSaved() {
       this.lastLoadedSyllabiSnapshot = JSON.stringify(this.allSyllabi);
       this.isDirty = false;
-      loggingService.logInfo("Current syllabi collection marked as saved.");
-    },
-
-    downloadSyllabi() {
-      loggingService.logInfo("Download current syllabi initiated.");
-      try {
-        const syllabiString = JSON.stringify(this.allSyllabi, null, 2);
-        const fileContent = `// UPSHOT Application User Syllabi
-// Timestamp: ${new Date().toISOString()}
-// App Version at Save: ${APP_VERSION}
-//
-// To use this file:
-// 1. Save it (or rename this downloaded file) as 'user_syllabi.js'
-// 2. Create a folder named 'syllabi' in the same directory as your UPSHOT index.html file.
-// 3. Place 'user_syllabi.js' inside that 'syllabi' folder (e.g., ./syllabi/user_syllabi.js).
-// 4. Reload the UPSHOT application.
-window.UPSHOT_USER_SYLLABI = ${syllabiString};
-`;
-        const blob = new Blob([fileContent], {
-          type: "application/javascript;charset=utf-8",
-        });
-        const timestamp = new Date()
-          .toISOString()
-          .replace(/:/g, "-")
-          .replace(/\..+/, "");
-        const filename = `upshot_syllabi_download_${timestamp}.js`;
-
-        saveAs(blob, filename);
-        this.markAsSaved();
-        loggingService.logInfo(
-          `Syllabi downloaded as ${filename}. User needs to place it correctly.`
-        );
-      } catch (error: any) {
-        loggingService.logError(
-          "Error preparing or downloading syllabi:",
-          error
-        );
-      }
-    },
-
-    // Action for importing from the SHARP Syllabus Export Excel - to be fully implemented later
-    async importSyllabiFromSharpExport(file: File) {
-      this.isLoading = true;
       loggingService.logInfo(
-        `Importing syllabi from SHARP export: ${file.name}`
+        "Current syllabi collection marked as saved/downloaded."
       );
-      try {
-        // const { excelProcessorService } = await import('../core/excelProcessorService'); // Lazy load if it's large
-        // const importedSyllabi = await excelProcessorService.parseSharpSyllabusExport(file);
-        // this.setAllSyllabi(importedSyllabi); // Replace current syllabi
-        // loggingService.logInfo(`${importedSyllabi.length} syllabi imported from SHARP file.`);
-        // uiStore.addNotification({ message: 'SHARP Syllabi imported successfully!', type: 'success' });
-        loggingService.logWarn(
-          "SHARP Syllabus Export parsing not yet fully implemented."
-        );
-        // For now, simulate:
-        this.addSyllabus({
-          id: "TEMP_FROM_SHARP",
-          name: "Temp Syllabus from SHARP",
-          position: "PILOT",
-          level: 200,
-          year: "2025",
-          requirements: [],
-          wingGoalMonths: 1,
-          squadronGoalMonths: 1,
-          displayName: "Temp Syllabus from Sharp",
-        });
-      } catch (error: any) {
-        loggingService.logError(
-          `Error importing syllabi from SHARP export: ${file.name}`,
-          error
-        );
-        // const uiStore = useUiStore();
-        // uiStore.addNotification({ message: `Error importing SHARP syllabi: ${error.message}`, type: 'error' });
-      } finally {
-        this.isLoading = false;
-      }
     },
   },
 

@@ -30,13 +30,6 @@ export interface Requirement extends Identifiable, Named {
   isMandatory?: boolean; // Derived from SHARP "Required" column (e.g., true if "Yes", false if "No").
   isDefaultWaived?: boolean; // Derived. True if rawSharpEventSubtype === 'OTHER QUAL' or if isMandatory === false.
   // This means the item is generally considered 'waived' for anyone on this syllabus.
-
-  // Numeric/effort fields from SHARP Syllabus Export (from image_4ff2f2.png and your description)
-  academicHours?: number | null;
-  deviceHours?: number | null; // e.g., simulator hours
-  flightHoursAssociated?: number | null; // Using "flightHoursAssociated" to distinguish from pilot flight hours module
-  eventCreditValue?: number | null;
-
   // Other potential metadata from SHARP Syllabus Export Sheet 3
   // stage?: string | null;
   // lessonCode?: string | null;
@@ -52,7 +45,7 @@ export interface Syllabus extends Identifiable, Named {
   // id: A unique identifier for this specific syllabus instance
   //     (e.g., "EWO-2025-L200" or "P8A_EWO_CORE_SYLLABUS_2025_V1.0-L200").
   // name: The "Syllabus Name" from SHARP Sheet 1 (e.g., "P-8A EWO CORE SYLLABUS 2025 v1.0").
-
+  masterSyllabusIdentifier: string | null;
   position: string; // e.g., "PILOT", "NFO", "EWO", "AAW". (From Sheet 1 or inferred).
   level: number; // The ACTC Level this specific syllabus instance pertains to (e.g., 200, 300, 400).
   // Even if Sheet 1 lists multiple applicable levels for a document,
@@ -60,7 +53,7 @@ export interface Syllabus extends Identifiable, Named {
   year: string; // Syllabus promulgation year (e.g., "2023", "2025"). From Sheet 1.
   version?: string; // Extracted from Syllabus Name on Sheet 1 or a dedicated column.
 
-  pqsVersionRef?: string; // Matches "PQS VER" from SHARP Training Records Column B.
+  pqsVersionRef?: string | null; // Matches "PQS VER" from SHARP Training Records Column B.
   // This helps link the syllabus to specific PQS documentation version. (From Sheet 1).
 
   requirements: Requirement[]; // All requirements (PQS & Events) that belong to this specific Syllabus (position, level, year).

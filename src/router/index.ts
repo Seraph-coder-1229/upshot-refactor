@@ -7,6 +7,7 @@ import {
 import DashboardView from "../views/DashboardView.vue";
 import AppSettingsView from "../views/AppSettingsView.vue";
 import SyllabusManagementView from "../views/SyllabusManagementView.vue";
+import HelpView from "../views/HelpView.vue";
 
 // You can lazy-load other views if they are large or not immediately needed
 // For now, direct imports are fine for simplicity during setup.
@@ -56,12 +57,11 @@ const routes: Array<RouteRecordRaw> = [
   //       /* webpackChunkName: "flightHours" */ "src/views/FlightHoursView.vue"
   //     ),
   // },
-  // {
-  //   path: "/help",
-  //   name: "help",
-  //   component: () =>
-  //     import(/* webpackChunkName: "help" */ "src/views/HelpView.vue"),
-  // },
+  {
+    path: "/help",
+    name: "help",
+    component: HelpView,
+  },
   // Remove or comment out the old '/about' route if not used
   // {
   //   path: '/about',

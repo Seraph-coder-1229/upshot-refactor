@@ -147,9 +147,8 @@ const handleAddManualSyllabus = () => {
 };
 
 const handleEditSyllabus = (syllabusId: string) => {
-  // Emit an event with the syllabusId
+  console.log("SyllabusList emitting edit-syllabus for ID:", syllabusId); // DEBUG
   emit("edit-syllabus", syllabusId);
-  // uiStore.addNotification({ message: `Edit syllabus (ID: ${syllabusId}) to be implemented.`, type: 'info' });
 };
 
 const handleDeleteSyllabus = (syllabusId: string) => {
