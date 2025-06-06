@@ -24,6 +24,23 @@ export function excelToJsDate_LocalIntent(excelDate: number): Date | null {
   return new Date(Date.UTC(year, month, day));
 }
 
+/**
+ * Converts a JavaScript Date object into an Excel serial date number.
+ * This function handles the conversion based on UTC date components
+ * to avoid timezone-related shifts, ensuring consistency with how dates are imported.
+ * Excel's epoch starts on 1899-12-30 for compatibility with its 1900 leap year bug.
+ * @param jsDate - The JavaScript Date object (assumed to be UTC).
+ * @returns The serial number representation of the date for Excel.
+ */
+export function jsDateToExcel(jsDate: Date): number {
+  const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+  // We calculate the difference in milliseconds and convert to days.
+  const msPerDay = 24 * 60 * 60 * 1000;
+  const timeDiff = jsDate.getTime() - excelEpoch.getTime();
+
+  return timeDiff / msPerDay;
+}
+
 // OR, if SheetJS `cellDates: true` truly gives a JS Date object that *already*
 // represents the local date correctly when using local methods (getFullYear, etc.)
 // then the conversion to a consistent UTC representation for storage is:

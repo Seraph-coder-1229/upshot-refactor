@@ -2,7 +2,10 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { type Upgrader } from "../../types/personnelTypes";
 import { useUiStore } from "../../stores/uiStore";
-import { excelToJsDate_LocalIntent } from "../../utils/dateUtils";
+import {
+  excelToJsDate_LocalIntent,
+  jsDateToExcel,
+} from "../../utils/dateUtils";
 
 // Define the expected header columns in the Personnel Excel file.
 const PERSONNEL_FILE_HEADERS = [
@@ -62,6 +65,7 @@ export async function processPersonnelFile(file: File): Promise<Upgrader[]> {
         targetQualificationLevel: row["Target Qual Level"] || 200,
         onWaiver: String(row["On Waiver"]).toUpperCase() === "TRUE",
         allCompletions: [],
+        rawCompletions: [],
       };
       personnel.push(upgrader);
     } catch (error) {
@@ -117,5 +121,57 @@ export function downloadPersonnelTemplate(): void {
       type: "error",
     });
     console.error("Error generating personnel template:", error);
+  }
+}
+
+/**
+ * Generates and downloads an Excel file from the current personnel data.
+ * @param personnel - An array of Upgrader objects from the store.
+ */
+export function downloadPersonnelData(personnel: Upgrader[]): void {
+  const uiStore = useUiStore();
+  if (!personnel || personnel.length === 0) {
+    uiStore.addNotification({
+      message: "No personnel data to download.",
+      type: "warning",
+    });
+    return;
+  }
+
+  try {
+    // 1. Map Upgrader data back to the simple Excel row format
+    const excelData = personnel.map((p) => ({
+      Rank: p.rank,
+      "Display Name": p.displayName,
+      "SHARP Name": p.name, // 'name' holds the SHARP Name
+      "Start Date": jsDateToExcel(p.startDate), // Convert date back to Excel format
+      "Assigned Position": p.assignedPosition,
+      "Assigned Syllabus Year": p.assignedSyllabusYear,
+      "Target Qual Level": p.targetQualificationLevel,
+      "On Waiver": p.onWaiver ? "TRUE" : "FALSE",
+    }));
+
+    // 2. Create worksheet and workbook
+    const worksheet = XLSX.utils.json_to_sheet(excelData, {
+      header: PERSONNEL_FILE_HEADERS,
+    });
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Personnel");
+
+    // 3. Generate and download the file
+    const excelBuffer = XLSX.write(workbook, {
+      bookType: "xlsx",
+      type: "array",
+    });
+    const data = new Blob([excelBuffer], { type: "application/octet-stream" });
+
+    const timestamp = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    saveAs(data, `Personnel_Data_${timestamp}.xlsx`);
+  } catch (error) {
+    uiStore.addNotification({
+      message: "Failed to generate the personnel Excel file.",
+      type: "error",
+    });
+    console.error("Error downloading personnel data:", error);
   }
 }

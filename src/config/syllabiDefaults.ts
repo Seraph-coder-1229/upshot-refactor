@@ -14,6 +14,7 @@ const examplePqsRequirement: Requirement = {
   prerequisites: [],
   isMandatory: true,
   isDefaultWaived: false,
+  level: 200,
 };
 
 // Example of a very basic default Event requirement
@@ -26,6 +27,7 @@ const exampleEventRequirement: Requirement = {
   prerequisites: ["DEFAULT_PQS_001"], // Depends on the PQS above
   isMandatory: true,
   isDefaultWaived: false,
+  level: 200,
 };
 
 // Define a default syllabus structure

@@ -467,6 +467,7 @@ export const excelSyllabusProcessorService = {
         prerequisites: [],
         isMandatory: isMandatory,
         isDefaultWaived: derivedWaived || !isMandatory,
+        level: actcLevel,
       };
       allParsedRequirementsMap.set(reqId, newReq);
       parentSyllabusForReq.requirements.push(newReq);

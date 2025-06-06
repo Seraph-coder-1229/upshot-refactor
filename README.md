@@ -170,17 +170,17 @@ A help section/modal within the application will provide:
 * [X] Enhance src/core/excelProcessorService.ts for Personnel Excel files.
 * [X] Action in personnelStore.ts to loadPersonnelFromFile(file: File).
 * [X] Develop src/components/specific/PersonnelManager/ components.
-* [ ] Implement "Download Personnel Data as Excel".
-* [ ] Implement src/utils/nameMatcher.ts.
+* [X] Implement "Download Personnel Data as Excel".
+* [X] Implement src/utils/nameMatcher.ts.
 
 ## Phase 5: Training Record Processing (SHARP Data)
-* [ ] Enhance excelProcessorService.ts for SHARP "Date Completed" sheets (dynamic events, ACTC level columns).
-* [ ] Implement/Refine src/stores/progressStore.ts:
-    * [ ] Action loadAndProcessSharpFile(positionKey: string, file: File).
-        * [ ] Use excelProcessorService, personnelStore, nameMatcher.ts, syllabiStore.
-        * [ ] Implement logic for derivedPqsWorkingLevel & derivedEventsWorkingLevel (including "L(X) PQS complete -> L(X+100) PQS eligible" rule).
-        * [ ] Store completion data.
-* [ ] UI for uploading SHARP files, specifying positionKey.
+* [X] Enhance excelProcessorService.ts for SHARP "Date Completed" sheets (dynamic events, ACTC level columns).
+* [X] Implement/Refine src/stores/progressStore.ts:
+    * [X] Action loadAndProcessSharpFile(positionKey: string, file: File).
+        * [X] Use excelProcessorService, personnelStore, nameMatcher.ts, syllabiStore.
+        * [X] Implement logic for derivedPqsWorkingLevel & derivedEventsWorkingLevel (including "L(X) PQS complete -> L(X+100) PQS eligible" rule).
+        * [X] Store completion data.
+* [X] UI for uploading SHARP files, specifying positionKey.
 
 ## Phase 6: Core Calculations & Utilities
 * [ ] Fully implement src/utils/dateUtils.ts.

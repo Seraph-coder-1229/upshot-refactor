@@ -233,6 +233,19 @@ export const useSyllabiStore = defineStore("syllabi", {
         "Current syllabi collection marked as saved/downloaded."
       );
     },
+
+    /**
+     * Finds a syllabus by the assigned position and year.
+     * @param position - The assigned position (e.g., "PILOT").
+     * @param year - The syllabus year (e.g., "2023").
+     * @returns The matching Syllabus object or undefined if not found.
+     */
+    findSyllabus(position: string, year: string): Syllabus | undefined {
+      return this.allSyllabi.find(
+        (s) =>
+          s.position.toUpperCase() === position.toUpperCase() && s.year === year
+      );
+    },
   },
 
   getters: {

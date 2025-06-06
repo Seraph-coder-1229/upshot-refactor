@@ -1,6 +1,10 @@
 import { type Identifiable, type Named } from "./commonTypes";
 
-export type RequirementType = "PQS" | "Event";
+export enum RequirementType {
+  PQS = "PQS",
+  Event = "Event",
+  Other = "Other",
+}
 
 /**
  * Our internal, simplified categorization for a requirement,
@@ -21,6 +25,8 @@ export interface Requirement extends Identifiable, Named {
   //       This is the primary field for matching against training completion records.
   // displayName: Will be SHARP's "Short Name" for UI purposes.
 
+  /** The qualification level this requirement belongs to (e.g., 200, 300). */
+  level: number;
   requirementType: RequirementTypeInternal; // Mapped from SHARP 'Event Subtype'.
   rawSharpEventSubtype?: string; // Store the original 'Event Subtype' string from SHARP for reference.
 
