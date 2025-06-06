@@ -4,8 +4,8 @@ import {
   type Syllabus,
   type Requirement,
   type RequirementTypeInternal,
-} from "../types/syllabiTypes"; // Ensure path is correct
-import { loggingService } from "../utils/loggingService"; // Ensure path is correct
+} from "../../types/syllabiTypes"; // Ensure path is correct
+import { loggingService } from "../../utils/loggingService"; // Ensure path is correct
 
 const SVC_MODULE = "[ExcelProcessorService]";
 
@@ -230,7 +230,7 @@ function resolvePrerequisiteStringToId(
   return null;
 }
 
-export const excelProcessorService = {
+export const excelSyllabusProcessorService = {
   async parseSharpSyllabusExport(file: File): Promise<Syllabus[]> {
     loggingService.logInfo(
       `${SVC_MODULE} Initiating SHARP Syllabus Export parsing: "${file.name}"`

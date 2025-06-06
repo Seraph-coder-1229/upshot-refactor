@@ -163,13 +163,13 @@ A help section/modal within the application will provide:
 * [X] Implement src/stores/syllabiStore.ts (load from window.UPSHOT_USER_SYLLABI or defaults, CRUD, download, dirty flag).
 * [X] Develop src/components/specific/SyllabusManager/ components.
 * [-] Add UI for "Download Syllabi" & user instructions for persistence.
-* [ ] (Stretch) Logic for creating new syllabi from SHARP Excel format.
+* [-] (Stretch) Logic for creating new syllabi from SHARP Excel format.
 
 ## Phase 4: Personnel Management
-* [ ] Implement src/stores/personnelStore.ts.
-* [ ] Enhance src/core/excelProcessorService.ts for Personnel Excel files.
-* [ ] Action in personnelStore.ts to loadPersonnelFromFile(file: File).
-* [ ] Develop src/components/specific/PersonnelManager/ components.
+* [X] Implement src/stores/personnelStore.ts.
+* [X] Enhance src/core/excelProcessorService.ts for Personnel Excel files.
+* [X] Action in personnelStore.ts to loadPersonnelFromFile(file: File).
+* [X] Develop src/components/specific/PersonnelManager/ components.
 * [ ] Implement "Download Personnel Data as Excel".
 * [ ] Implement src/utils/nameMatcher.ts.
 

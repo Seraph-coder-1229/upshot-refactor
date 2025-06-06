@@ -8,6 +8,7 @@ import DashboardView from "../views/DashboardView.vue";
 import AppSettingsView from "../views/AppSettingsView.vue";
 import SyllabusManagementView from "../views/SyllabusManagementView.vue";
 import HelpView from "../views/HelpView.vue";
+import PersonnelView from "../views/PersonnelView.vue";
 
 // You can lazy-load other views if they are large or not immediately needed
 // For now, direct imports are fine for simplicity during setup.
@@ -29,14 +30,11 @@ const routes: Array<RouteRecordRaw> = [
     name: "syllabi",
     component: SyllabusManagementView,
   },
-  // {
-  //   path: "/personnel",
-  //   name: "personnel",
-  //   component: () =>
-  //     import(
-  //       /* webpackChunkName: "personnel" */ "src/views/PersonnelManagementView.vue"
-  //     ),
-  // },
+  {
+    path: "/personnel",
+    name: "personnel",
+    component: PersonnelView,
+  },
   // {
   //   path: "/import",
   //   name: "import",

@@ -1,84 +1,80 @@
+// src/stores/uiStore.ts
 import { defineStore } from "pinia";
-import { type AppNotification } from "../types/commonTypes";
-import { loggingService } from "../utils/loggingService"; // For logging UI actions if needed
-import { NOTIFICATION_TIME } from "@/config/constants";
+import { type AppNotification } from "../types/commonTypes"; // Assuming commonTypes.ts exists
+import { loggingService } from "../utils/loggingService"; // For logging UI actions
+
+const DEFAULT_NOTIFICATION_DURATION = 3000; // 5 seconds
+
 export const useUiStore = defineStore("ui", {
   state: () => ({
     notifications: [] as AppNotification[],
-    isLoading: false, // Global loading indicator state
-    criticalError: null as Error | null, // Stores a critical, app-breaking error object
-    criticalErrorMessage: "" as string, // User-friendly message for the critical error screen
-    nextNotificationId: 1, // Simple ID generator
+    isLoading: false,
+    criticalError: null as Error | null,
+    criticalErrorMessage: "" as string,
+    nextNotificationId: 1, // Better way to generate unique IDs
+    isGlobalLoading: false,
   }),
   actions: {
     /**
-     * Adds a notification to be displayed to the user (e.g., as a toast).
-     * @param notification - The notification object (message, type, optional duration).
+     * Sets the global loading state of the application.
+     * @param {boolean} isLoading - Whether the loading indicator should be active.
      */
+    setGlobalLoading(isLoading: boolean) {
+      this.isGlobalLoading = isLoading;
+    },
     addNotification(notification: Omit<AppNotification, "id">) {
-      const id = this.nextNotificationId++;
-      // const duration = 0;
-      // if (notification.duration) {
-      //   duration = NOTIFICATION_TIME[notification.type]
-      // }
-      const newNotification: AppNotification = { ...notification, id };
+      const id = this.nextNotificationId++; // Use incrementing ID
+      const duration =
+        notification.duration === 0
+          ? 0
+          : notification.duration || DEFAULT_NOTIFICATION_DURATION; // 0 means persistent
+
+      const newNotification: AppNotification = {
+        ...notification,
+        id,
+        duration,
+      };
 
       this.notifications.push(newNotification);
       loggingService.logInfo(
-        `UI Notification Added: ${newNotification.type} - ${newNotification.message}`
+        `UI Notification Added: ID=${id}, Type=${newNotification.type}, Msg="${newNotification.message}", Duration=${duration}`
       );
 
-      // Auto-remove notification after duration, if specified and > 0
-      if (notification.duration && notification.duration > 0) {
+      // Auto-remove notification after duration, if duration is positive
+      if (duration > 0) {
         setTimeout(() => {
           this.removeNotification(id);
-        }, notification.duration);
+        }, duration);
       }
     },
 
-    /**
-     * Removes a notification by its ID.
-     * @param id - The ID of the notification to remove.
-     */
     removeNotification(id: number) {
-      this.notifications = this.notifications.filter((n) => n.id !== id);
-      loggingService.logDebug(`UI Notification Removed: ID ${id}`);
+      const index = this.notifications.findIndex((n) => n.id === id);
+      if (index !== -1) {
+        this.notifications.splice(index, 1);
+        loggingService.logDebug(`UI Notification Removed: ID ${id}`);
+      }
     },
 
-    /**
-     * Sets the global loading indicator state.
-     * @param status - True to show loading, false to hide.
-     */
     setLoading(status: boolean) {
-      if (this.isLoading === status) return; // Avoid redundant logging if state is the same
+      if (this.isLoading === status) return;
       this.isLoading = status;
       loggingService.logDebug(`UI Loading State Changed: ${status}`);
     },
 
-    /**
-     * Sets the application to a critical error state.
-     * This will typically trigger a full-screen error display.
-     * @param error - The actual Error object.
-     * @param userMessage - A user-friendly message to display.
-     */
     setCriticalError(error: Error, userMessage: string) {
       this.criticalError = error;
       this.criticalErrorMessage = userMessage;
-      this.isLoading = false; // Ensure loading indicator is hidden during critical error
+      this.isLoading = false;
       loggingService.logError("CRITICAL UI ERROR SET:", {
         userMessage,
         errorDetails: error,
       });
     },
 
-    /**
-     * Clears the critical error state, allowing the app to potentially be reloaded or reset.
-     */
     clearCriticalError() {
       if (this.criticalError) {
-        loggingService.logInfo(
-          "Critical UI error cleared by user or system action."
-        );
+        loggingService.logInfo("Critical UI error cleared.");
       }
       this.criticalError = null;
       this.criticalErrorMessage = "";

@@ -15,11 +15,7 @@
             class="hover:text-indigo-300 cursor-pointer"
             >Syllabi</router-link
           >
-          <router-link
-            to="/personnel"
-            class="hover:text-indigo-300 cursor-pointer"
-            >Personnel</router-link
-          >
+          <router-link to="/personnel">Personnel</router-link>
           <router-link
             to="/reports"
             class="hover:text-indigo-300 cursor-pointer"

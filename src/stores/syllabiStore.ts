@@ -6,7 +6,7 @@ import { loggingService } from "../utils/loggingService";
 import { saveAs } from "file-saver"; // For downloading
 import { APP_VERSION } from "../config/constants"; // Assuming APP_VERSION is in constants.ts
 import { deepClone } from "@/utils/dataUtils";
-import { excelProcessorService } from "../core/excelProcessorService"; // <<<< NEW IMPORT
+import { excelSyllabusProcessorService } from "../core/excelProcessorServices/syllabusProcessorService"; // <<<< NEW IMPORT
 import { useUiStore } from "./uiStore"; // For notifications and loading state
 
 // Function to get the initial syllabi
@@ -111,7 +111,7 @@ export const useSyllabiStore = defineStore("syllabi", {
       try {
         // Call the actual parsing function from your excelProcessorService
         const importedSyllabi =
-          await excelProcessorService.parseSharpSyllabusExport(file);
+          await excelSyllabusProcessorService.parseSharpSyllabusExport(file);
 
         if (importedSyllabi && importedSyllabi.length > 0) {
           // Replace current syllabi in the store with the newly imported ones
