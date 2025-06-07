@@ -1,17 +1,17 @@
 // src/stores/syllabiStore.ts
 import { defineStore } from "pinia";
-import { type Syllabus } from "../types/syllabiTypes";
-import { defaultSyllabi } from "../config/syllabiDefaults";
+import { type Syllabus, Requirement } from "../types/syllabiTypes";
+import { DEFAULT_SYLLABI } from "../config/syllabiDefaults";
 import { loggingService } from "../utils/loggingService";
-import { saveAs } from "file-saver"; // For downloading
-import { APP_VERSION } from "../config/constants"; // Assuming APP_VERSION is in constants.ts
+// import { saveAs } from "file-saver"; // For downloading
+// import { APP_VERSION } from "../config/constants"; // Assuming APP_VERSION is in constants.ts
 import { deepClone } from "@/utils/dataUtils";
-import { excelSyllabusProcessorService } from "../core/excelProcessorServices/syllabusProcessorService"; // <<<< NEW IMPORT
+import { excelSyllabusProcessorService } from "../core/excelProcessorServices/syllabusProcessorService"; 
 import { useUiStore } from "./uiStore"; // For notifications and loading state
 
 // Function to get the initial syllabi
 function getInitialSyllabi(): Syllabus[] {
-  let loadedSyllabi = deepClone(defaultSyllabi); // Start with built-in defaults
+  let loadedSyllabi = deepClone(DEFAULT_SYLLABI); // Start with built-in defaults
 
   if (
     Array.isArray(window.UPSHOT_USER_SYLLABI) &&
@@ -33,14 +33,14 @@ function getInitialSyllabi(): Syllabus[] {
         loggingService.logWarn(
           "User syllabi from window.UPSHOT_USER_SYLLABI appears malformed. Using default syllabi."
         );
-        loadedSyllabi = deepClone(defaultSyllabi);
+        loadedSyllabi = deepClone(DEFAULT_SYLLABI);
       }
     } catch (e: any) {
       loggingService.logError(
         "Error processing user_syllabi from window. Using defaults.",
         e.message
       );
-      loadedSyllabi = deepClone(defaultSyllabi);
+      loadedSyllabi = deepClone(DEFAULT_SYLLABI);
     }
   } else {
     loggingService.logInfo(
@@ -249,43 +249,54 @@ export const useSyllabiStore = defineStore("syllabi", {
   },
 
   getters: {
-    getSyllabusById:
+    getSyllabusById: (state) => (id: string) => {
+      return state.allSyllabi.find((s) => s.id === id);
+    },
+
+    /**
+     * Finds a syllabus based on position and year.
+     * A syllabus is uniquely identified by these two properties.
+     */
+    getSyllabusByPositionAndYear:
       (state) =>
-      (id: string): Syllabus | undefined => {
-        return state.allSyllabi.find((s) => s.id === id);
+      (position: string, year: string): Syllabus | undefined => {
+        return state.allSyllabi.find(
+          (s) =>
+            s.position.toUpperCase() === position.toUpperCase() &&
+            s.year === year
+        );
       },
-    getSyllabiByCriteria:
+
+    /**
+     * Gets all requirements for a given syllabus, with an option to filter by level.
+     */
+    getRequirementsForSyllabus:
       (state) =>
-      (criteria: {
-        position?: string;
-        level?: number;
-        year?: string;
-        type?: "pqs" | "events"; // Note: 'type' is on Requirement now, so this getter needs adjustment
-        // or Syllabus needs to retain a primary type if it's still useful at syllabus level.
-        // Based on our latest types, a Syllabus is for a position/level/year and contains
-        // requirements of both types. So filtering by 'type' at syllabus level might be less direct.
-      }): Syllabus[] => {
-        return state.allSyllabi.filter((s) => {
-          let match = true;
-          if (
-            criteria.position &&
-            s.position.toUpperCase() !== criteria.position.toUpperCase()
-          )
-            match = false;
-          if (criteria.level && s.level !== criteria.level) match = false;
-          if (criteria.year && s.year !== criteria.year) match = false;
-          // If you need to filter syllabi that *contain* a certain type of requirement, that's more complex.
-          // For now, this getter assumes Syllabus might have a primary type or position/level/year is enough.
-          return match;
-        });
+      (position: string, year: string, level?: number): Requirement[] => {
+        // CORRECTED LOGIC: Find the syllabus by position and year first.
+        const syllabus = state.allSyllabi.find(
+          (s) =>
+            s.position.toUpperCase() === position.toUpperCase() &&
+            s.year === year
+        );
+
+        if (!syllabus) return [];
+
+        // If a level is provided, filter the requirements from the found syllabus.
+        if (level !== undefined) {
+          return syllabus.requirements.filter((req) => req.level === level);
+        }
+
+        // Otherwise, return all requirements.
+        return syllabus.requirements;
       },
-    // Getter to get all distinct positions available in the loaded syllabi
+
     getAvailablePositions: (state): string[] => {
       const positions = new Set<string>();
       state.allSyllabi.forEach((s) => positions.add(s.position));
       return Array.from(positions).sort();
     },
-    // Getter to get all distinct years for a given position
+
     getAvailableYearsForPosition:
       (state) =>
       (position: string): string[] => {
@@ -293,21 +304,29 @@ export const useSyllabiStore = defineStore("syllabi", {
         state.allSyllabi
           .filter((s) => s.position.toUpperCase() === position.toUpperCase())
           .forEach((s) => years.add(s.year));
-        return Array.from(years).sort((a, b) => b.localeCompare(a)); // Sort descending
+        return Array.from(years).sort((a, b) => b.localeCompare(a));
       },
-    // Getter to get all distinct levels for a given position and year
+
+    /**
+     * Gets all distinct levels (e.g., 200, 300) available within a specific syllabus.
+     */
     getAvailableLevels:
       (state) =>
       (position: string, year: string): number[] => {
         const levels = new Set<number>();
-        state.allSyllabi
-          .filter(
-            (s) =>
-              s.position.toUpperCase() === position.toUpperCase() &&
-              s.year === year
-          )
-          .forEach((s) => levels.add(s.level));
-        return Array.from(levels).sort((a, b) => a - b); // Sort ascending
+        const syllabus = state.allSyllabi.find(
+          (s) =>
+            s.position.toUpperCase() === position.toUpperCase() &&
+            s.year === year
+        );
+
+        // CORRECTED LOGIC: If the syllabus is found, iterate through its
+        // requirements to find all unique levels.
+        if (syllabus) {
+          syllabus.requirements.forEach((req) => levels.add(req.level));
+        }
+
+        return Array.from(levels).sort((a, b) => a - b);
       },
   },
 });

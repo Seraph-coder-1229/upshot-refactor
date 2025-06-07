@@ -183,7 +183,7 @@ A help section/modal within the application will provide:
 * [X] UI for uploading SHARP files, specifying positionKey.
 
 ## Phase 6: Core Calculations & Utilities
-* [ ] Fully implement src/utils/dateUtils.ts.
+* [X] Fully implement src/utils/dateUtils.ts.
 * [ ] Implement src/core/trainingLogicService.ts (progress metrics, projections, difficulty factoring, priority, readiness).
 * [ ] Implement src/core/syllabusLogicService.ts (prerequisite resolution, waiver logic).
 * [ ] Integrate calls within progressStore actions.

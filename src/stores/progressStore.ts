@@ -3,22 +3,27 @@ import { usePersonnelStore } from "./personnelStore";
 import { useUiStore } from "./uiStore";
 import { useSyllabiStore } from "./syllabiStore";
 import { createPersonnelNameMatcher } from "../utils/nameMatcher";
+// Note: Adjusted the import path to match the project structure we defined.
 import {
   processSharpTrainingFile,
   type ProcessedSharpDataMap,
 } from "../core/excelProcessorServices/trainingDataProcessorService";
-import { calculateDerivedWorkingLevels } from "../core/trainingLogicService";
+import {
+  calculateDerivedWorkingLevels,
+  calculateProgressMetrics,
+} from "../core/trainingLogicService";
 
 export const useProgressStore = defineStore("progress", {
   state: () => ({
     lastProcessingStats: { matched: 0, unmatched: 0 },
-    // --- NEW: Staging area for pending data ---
+    // Staging area for data awaiting user confirmation
     pendingSharpData: null as ProcessedSharpDataMap | null,
     detectedTrack: null as string | null,
   }),
   actions: {
     /**
      * Step 1: Processes a SHARP file and stages it for user confirmation.
+     * This action does NOT merge the data, it only prepares it.
      */
     async loadAndProcessSharpFile(sharpFile: File) {
       const uiStore = useUiStore();
@@ -44,10 +49,17 @@ export const useProgressStore = defineStore("progress", {
         if (data.size > 0) {
           this.pendingSharpData = data;
           this.detectedTrack = detectedTrack;
-          // In a real UI, this would trigger a confirmation modal via the uiStore
+          // This console log is a placeholder for a UI modal that will ask the user to confirm.
           console.log(
             `File processed. Detected track: ${detectedTrack}. Awaiting confirmation.`
           );
+          uiStore.addNotification({
+            message: `File processed. Detected track: ${
+              detectedTrack || "Unknown"
+            }. Please confirm to merge.`,
+            type: "info",
+            duration: 10000,
+          });
         } else {
           uiStore.addNotification({
             message: "SHARP file processed, but no data was found.",
@@ -84,23 +96,31 @@ export const useProgressStore = defineStore("progress", {
       const matchedPersonnelIds = new Set<string>();
       const unmatchedNames = new Set<string>();
 
-      // Merge data from the staged 'pendingSharpData'
       for (const [name, studentData] of this.pendingSharpData.entries()) {
         const personnelId = nameMatcher.findMatch(name);
         if (personnelId) {
           matchedPersonnelIds.add(personnelId);
           const upgrader = personnelStore.getPersonnelById(personnelId);
           if (upgrader) {
-            // ... (The merge logic is the same as before) ...
             upgrader.currentSharpPqsVersion = studentData.pqsVersionName;
-            // ... etc ...
+            upgrader.pqsVersionStatus = studentData.pqsVersionStatus;
+            if (!upgrader.actcLevelData) upgrader.actcLevelData = {};
+            for (const [
+              level,
+              status,
+            ] of studentData.actcLevelStatuses.entries()) {
+              if (!upgrader.actcLevelData[level])
+                upgrader.actcLevelData[level] = {};
+              upgrader.actcLevelData[level].status = status;
+            }
+            upgrader.rawCompletions.push(...studentData.completions);
           }
         } else {
           unmatchedNames.add(name);
         }
       }
 
-      // Recalculate derived levels
+      // Recalculate levels and metrics for all matched personnel
       for (const id of matchedPersonnelIds) {
         const upgrader = personnelStore.getPersonnelById(id);
         const syllabus = upgrader
@@ -111,10 +131,11 @@ export const useProgressStore = defineStore("progress", {
           : undefined;
         if (upgrader && syllabus) {
           calculateDerivedWorkingLevels(upgrader, syllabus);
+          calculateProgressMetrics(upgrader, syllabus);
         }
       }
 
-      // Report and clean up
+      // Report and clean up the staged data
       uiStore.addNotification({
         message: `Successfully merged data for ${matchedPersonnelIds.size} personnel.`,
         type: "success",
@@ -124,9 +145,15 @@ export const useProgressStore = defineStore("progress", {
     },
 
     /**
-     * Cancels the pending merge operation.
+     * Cancels the pending merge operation and clears the staged data.
      */
     cancelSharpDataMerge() {
+      if (this.pendingSharpData) {
+        useUiStore().addNotification({
+          message: "SHARP data merge has been cancelled.",
+          type: "info",
+        });
+      }
       this.pendingSharpData = null;
       this.detectedTrack = null;
     },

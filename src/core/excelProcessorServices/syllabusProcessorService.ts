@@ -331,13 +331,9 @@ export const excelSyllabusProcessorService = {
         name: levelSpecificTitleFromC,
         masterSyllabusIdentifier: masterOriginalA4,
         position: parsedMasterPosition,
-        level: level,
+        baseLevel: level,
         year: parsedMasterYear,
-        pqsVersionRef: pqsVersionRefForLinking,
         requirements: [],
-        wingGoalMonths: 12,
-        squadronGoalMonths: 9,
-        goalStartMonthsOffset: 0,
         displayName: "",
       });
       loggingService.logInfo(
@@ -422,7 +418,7 @@ export const excelSyllabusProcessorService = {
 
       const parentSyllabusForReq = parsedSyllabi.find(
         (s) =>
-          s.level === actcLevel &&
+          s.baseLevel === actcLevel &&
           s.position === parsedMasterPosition &&
           s.year === parsedMasterYear
       );
@@ -462,10 +458,9 @@ export const excelSyllabusProcessorService = {
         id: reqId,
         name: description,
         displayName: shortName,
-        requirementType: reqType,
+        type: reqType,
         rawSharpEventSubtype: eventSubtype || undefined,
         prerequisites: [],
-        isMandatory: isMandatory,
         isDefaultWaived: derivedWaived || !isMandatory,
         level: actcLevel,
       };
@@ -497,9 +492,9 @@ export const excelSyllabusProcessorService = {
           if (
             resolvedPrereqId &&
             resolvedPrereqId !== reqId &&
-            !requirement.prerequisites.includes(resolvedPrereqId)
+            !requirement.prerequisites?.includes(resolvedPrereqId)
           ) {
-            requirement.prerequisites.push(resolvedPrereqId);
+            requirement.prerequisites?.push(resolvedPrereqId);
           }
         }
       }

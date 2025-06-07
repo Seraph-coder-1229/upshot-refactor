@@ -79,4 +79,11 @@ export interface Upgrader extends Identifiable, Named {
 
   /** The person's current "working" events level, calculated by the application. */
   derivedEventsWorkingLevel?: number;
+
+  // --- NEW: Progress Metrics ---
+  /** The completion percentage for PQS items at the current derived working level. */
+  pqsProgressPercentage?: number;
+
+  /** The completion percentage for Event items at the current derived working level. */
+  eventsProgressPercentage?: number;
 }
