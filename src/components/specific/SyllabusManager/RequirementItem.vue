@@ -1,285 +1,115 @@
 <template>
-  <div
-    class="p-3 my-2 border rounded-md bg-white shadow-sm hover:shadow-md transition-shadow"
-  >
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3">
-      <div>
-        <label
-          :for="`req-displayName-${index}`"
-          class="block text-xs font-medium text-gray-600"
-          >Display Name (UI)</label
-        >
-        <input
-          type="text"
-          :id="`req-displayName-${index}`"
-          :value="editableRequirement.displayName"
-          @input="
-            updateField(
-              'displayName',
-              ($event.target as HTMLInputElement).value
-            )
-          "
-          class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm p-1.5"
-        />
-      </div>
-
-      <div>
-        <label
-          :for="`req-name-${index}`"
-          class="block text-xs font-medium text-gray-600"
-          >SHARP Name / Description (Unique ID)</label
-        >
-        <input
-          type="text"
-          :id="`req-name-${index}`"
-          :value="editableRequirement.name"
-          @input="
-            updateField('name', ($event.target as HTMLInputElement).value)
-          "
-          required
-          class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm p-1.5"
-        />
-        <p class="text-xs text-gray-500 mt-0.5">
-          Must match SHARP export column header for completion tracking.
-        </p>
-      </div>
-
-      <div class="grid grid-cols-2 gap-2">
+  <div class="p-4 bg-white rounded-lg border">
+    <h4 class="text-lg font-semibold mb-4 border-b pb-2">Edit Requirement</h4>
+    <div v-if="editableRequirement" class="space-y-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label
-            :for="`req-type-${index}`"
-            class="block text-xs font-medium text-gray-600"
-            >Type (PQS/Event)</label
-          >
-          <select
-            :id="`req-type-${index}`"
-            :value="editableRequirement.requirementType"
-            @change="
-              updateField(
-                'requirementType',
-                ($event.target as HTMLSelectElement)
-                  .value as RequirementTypeInternal
-              )
-            "
-            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm p-1.5"
-          >
-            <option value="PQS">PQS</option>
-            <option value="Event">Event</option>
-            <option value="OtherWaived">Other (Waived)</option>
-          </select>
-        </div>
-        <div>
-          <label
-            :for="`req-rawSubType-${index}`"
-            class="block text-xs font-medium text-gray-600"
-            >SHARP Subtype (Orig.)</label
+          <label class="block text-sm font-medium text-gray-700"
+            >Display Name</label
           >
           <input
             type="text"
-            :id="`req-rawSubType-${index}`"
-            :value="editableRequirement.rawSharpEventSubtype"
-            @input="
-              updateField(
-                'rawSharpEventSubtype',
-                ($event.target as HTMLInputElement).value
-              )
-            "
-            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm p-1.5"
-            placeholder="e.g., FLIGHT, SYSTEM"
+            v-model="editableRequirement.displayName"
+            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
+          />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700"
+            >Long Name / Unique ID</label
+          >
+          <input
+            type="text"
+            v-model="editableRequirement.name"
+            required
+            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
           />
         </div>
       </div>
 
-      <div>
-        <label
-          :for="`req-difficulty-${index}`"
-          class="block text-xs font-medium text-gray-600"
-          >Difficulty (Optional)</label
-        >
-        <input
-          type="number"
-          min="0"
-          :id="`req-difficulty-${index}`"
-          :value="editableRequirement.difficulty"
-          @input="
-            updateField(
-              'difficulty',
-              parseInt(($event.target as HTMLInputElement).value) || undefined
-            )
-          "
-          class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm p-1.5"
-        />
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Type</label>
+          <select
+            v-model="editableRequirement.type"
+            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
+          >
+            <option :value="RequirementType.PQS">PQS</option>
+            <option :value="RequirementType.Event">Event</option>
+            <option :value="RequirementType.Board">Board</option>
+            <option :value="RequirementType.Other">Other</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Level</label>
+          <input
+            type="number"
+            v-model.number="editableRequirement.level"
+            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
+          />
+        </div>
       </div>
 
-      <div>
-        <label
-          :for="`req-acadHours-${index}`"
-          class="block text-xs font-medium text-gray-600"
-          >Academic Hrs (Opt.)</label
-        >
-        <input
-          type="number"
-          min="0"
-          step="0.1"
-          :id="`req-acadHours-${index}`"
-          :value="editableRequirement.academicHours"
-          @input="
-            updateField(
-              'academicHours',
-              parseFloat(($event.target as HTMLInputElement).value) || null
-            )
-          "
-          class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm p-1.5"
-        />
-      </div>
-      <div
-        class="col-span-1 md:col-span-2 grid grid-cols-2 gap-4 items-center pt-2"
-      >
-        <label
-          :for="`req-mandatory-${index}`"
-          class="flex items-center space-x-2 text-sm"
-        >
+      <div class="pt-2">
+        <label class="flex items-center space-x-3 cursor-pointer">
           <input
             type="checkbox"
-            :id="`req-mandatory-${index}`"
-            :checked="editableRequirement.isMandatory"
-            @change="
-              updateField(
-                'isMandatory',
-                ($event.target as HTMLInputElement).checked
-              )
-            "
-            class="rounded text-indigo-600"
+            v-model="editableRequirement.isDefaultWaived"
+            class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
           />
-          <span>Is Mandatory</span>
+          <span class="text-sm font-medium text-gray-700">Waived</span>
         </label>
-        <label
-          :for="`req-waived-${index}`"
-          class="flex items-center space-x-2 text-sm"
-        >
-          <input
-            type="checkbox"
-            :id="`req-waived-${index}`"
-            :checked="editableRequirement.isDefaultWaived"
-            @change="
-              updateField(
-                'isDefaultWaived',
-                ($event.target as HTMLInputElement).checked
-              )
-            "
-            class="rounded text-indigo-600"
-          />
-          <span>Default Waived</span>
-        </label>
+        <p class="text-xs text-gray-500 ml-7">
+          Check this if the requirement is waived.
+        </p>
       </div>
-    </div>
 
-    <div class="mt-4 pt-3 border-t">
-      <h5 class="text-sm font-semibold text-gray-700 mb-1">
-        Prerequisites (IDs/Names):
-      </h5>
-      <div
-        v-if="
-          editableRequirement.prerequisites &&
-          editableRequirement.prerequisites.length > 0
-        "
-        class="mb-2"
-      >
-        <span
-          v-for="(prereqId, pIdx) in editableRequirement.prerequisites"
-          :key="`prereq-${index}-${pIdx}`"
-          class="inline-block bg-gray-200 rounded-full px-2 py-0.5 text-xs font-medium text-gray-700 mr-1 mb-1"
+      <div class="mt-6 flex justify-end space-x-3 border-t pt-4">
+        <button
+          type="button"
+          @click="$emit('cancel')"
+          class="px-4 py-2 border rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
         >
-          {{ prereqId }}
-        </span>
+          Cancel
+        </button>
+        <button
+          type="button"
+          @click="$emit('update:requirement', editableRequirement)"
+          class="px-4 py-2 border rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+        >
+          Save Changes
+        </button>
       </div>
-      <p v-else class="text-xs text-gray-500 mb-2">None specified.</p>
-      <button
-        type="button"
-        @click="openPrerequisiteEditor"
-        class="text-xs px-3 py-1 border border-indigo-500 text-indigo-600 rounded hover:bg-indigo-50"
-      >
-        Edit Prerequisites (Stub)
-      </button>
-    </div>
-
-    <div class="mt-3 text-right">
-      <button
-        type="button"
-        @click="handleRemoveRequirement"
-        class="text-xs px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
-      >
-        Remove This Item
-      </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, type PropType, defineEmits, defineProps } from "vue";
-import {
-  type Requirement,
-  type RequirementTypeInternal,
-} from "@/types/syllabiTypes"; // Using @ alias
-import { useUiStore } from "@/stores/uiStore";
+import { ref, watch, type PropType, defineProps, defineEmits } from "vue";
+import { type Requirement, RequirementType } from "@/types/syllabiTypes";
 
 const props = defineProps({
   requirement: {
     type: Object as PropType<Requirement>,
     required: true,
   },
-  index: {
-    // For unique IDs in template
-    type: Number,
-    required: true,
-  },
-  // allPossiblePrerequisites: { // This would be passed from parent for the editor
-  //   type: Array as PropType<Requirement[]>,
-  //   default: () => []
-  // }
 });
 
 const emit = defineEmits<{
   (e: "update:requirement", updatedRequirement: Requirement): void;
-  (e: "remove:requirement", requirementId: string): void;
-  (e: "edit-prerequisites", requirementId: string): void; // To open a more complex editor
+  (e: "cancel"): void;
 }>();
 
-const uiStore = useUiStore();
-
-// Create a local reactive copy for editing to avoid direct prop mutation
 const editableRequirement = ref<Requirement>({ ...props.requirement });
 
-// Watch for prop changes if the parent might pass a new requirement object
 watch(
   () => props.requirement,
-  (newVal) => {
-    editableRequirement.value = { ...newVal };
+  (newRequirement) => {
+    // Ensure the checkbox has a boolean value to bind to
+    editableRequirement.value = {
+      ...newRequirement,
+      isDefaultWaived: !!newRequirement.isDefaultWaived,
+    };
   },
-  { deep: true }
+  { deep: true, immediate: true }
 );
-
-const updateField = <K extends keyof Requirement>(
-  field: K,
-  value: Requirement[K]
-) => {
-  editableRequirement.value = { ...editableRequirement.value, [field]: value };
-  // Emit the full updated requirement so the parent (SyllabusDetailForm) can update its list
-  // and eventually the store (and set the dirty flag)
-  emit("update:requirement", editableRequirement.value);
-};
-
-const openPrerequisiteEditor = () => {
-  uiStore.addNotification({
-    message: `Prerequisite editor for "${props.requirement.name}" to be implemented.`,
-    type: "info",
-  });
-  // This would typically open another modal or a dedicated UI section
-  // For now, we just emit an event that the parent (SyllabusDetailForm) could handle
-  emit("edit-prerequisites", props.requirement.id);
-};
-
-const handleRemoveRequirement = () => {
-  emit("remove:requirement", props.requirement.id);
-};
 </script>

@@ -6,6 +6,7 @@ import { type Identifiable, type Named } from "./commonTypes";
 export enum RequirementType {
   PQS = "PQS",
   Event = "Event",
+  Board = "Board",
   Other = "Other",
 }
 
@@ -18,6 +19,9 @@ export interface Requirement extends Identifiable, Named {
 
   /** The type of this requirement, used for filtering and logic. */
   type: RequirementType;
+
+  /** A suggested order for completing events within a level. From the "Default" sheet. */
+  sequence?: number;
 
   /** A list of other requirement 'name's that must be completed before this one. */
   prerequisites?: string[];
@@ -41,7 +45,6 @@ export interface Syllabus extends Identifiable, Named {
   position: string;
   year: string;
   displayName: string;
-
   /** The base qualification level for this syllabus (e.g., 200). */
   baseLevel: number;
 
@@ -49,6 +52,9 @@ export interface Syllabus extends Identifiable, Named {
   requirements: Requirement[];
 
   masterSyllabusIdentifier: string | null;
+  // Other properties from your file
+  pqsVersionRef?: string;
+  wingGoalMonths?: number;
 }
 
 /**
@@ -58,7 +64,7 @@ export interface Syllabus extends Identifiable, Named {
 export interface CompletedItemRecord {
   requirementId: string;
   requirementDisplayName: string;
-  requirementType: RequirementType; // Standardized to use the enum
+  requirementType: RequirementType;
   completionDate: Date;
   instructor?: string | null;
   grade?: string | number | null;
@@ -69,9 +75,9 @@ export interface CompletedItemRecord {
   isIndividuallyWaived?: boolean;
 }
 
-// Global augmentation for window.UPSHOT_USER_SYLLABI (if not in a separate globals.d.ts)
+// Global augmentation for window object
 declare global {
   interface Window {
-    UPSHOT_USER_SYLLABI?: Syllabus[];
+    UPSHOT_USER_SYLLABI: Syllabus[];
   }
 }

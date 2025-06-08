@@ -6,9 +6,9 @@ import { loggingService } from "../utils/loggingService";
 // import { saveAs } from "file-saver"; // For downloading
 // import { APP_VERSION } from "../config/constants"; // Assuming APP_VERSION is in constants.ts
 import { deepClone } from "@/utils/dataUtils";
-import { excelSyllabusProcessorService } from "../core/excelProcessorServices/syllabusProcessorService"; 
+import { excelSyllabusProcessorService } from "../core/excelProcessorServices/syllabusProcessorService";
 import { useUiStore } from "./uiStore"; // For notifications and loading state
-
+import { saveAs } from "file-saver";
 // Function to get the initial syllabi
 function getInitialSyllabi(): Syllabus[] {
   let loadedSyllabi = deepClone(DEFAULT_SYLLABI); // Start with built-in defaults
@@ -110,8 +110,7 @@ export const useSyllabiStore = defineStore("syllabi", {
 
       try {
         // Call the actual parsing function from your excelProcessorService
-        const importedSyllabi =
-          await excelSyllabusProcessorService.parseSharpSyllabusExport(file);
+        const importedSyllabi = await excelSyllabusProcessorService(file);
 
         if (importedSyllabi && importedSyllabi.length > 0) {
           // Replace current syllabi in the store with the newly imported ones
@@ -221,9 +220,34 @@ export const useSyllabiStore = defineStore("syllabi", {
       );
     },
 
+    /**
+     * Generates a .js file containing the current syllabi data and initiates a download.
+     */
     downloadSyllabi() {
-      // ... (implementation as before, ensure it calls this.markAsSaved()) ...
-      this.markAsSaved(); // Call this after initiating download
+      try {
+        const fileContent =
+          "// UPSHOT User Syllabi File\n// Place this file in the same directory as your main upshot.html file.\nwindow.UPSHOT_USER_SYLLABI = " +
+          JSON.stringify(this.allSyllabi, null, 2) + // Using null, 2 for pretty-printing
+          ";";
+
+        const blob = new Blob([fileContent], {
+          type: "text/javascript;charset=utf-8",
+        });
+
+        saveAs(blob, "user_syllabi.js");
+
+        // After successfully initiating the download, mark the state as saved.
+        this.markAsSaved();
+      } catch (error) {
+        loggingService.logError(
+          "Failed to prepare syllabi for download.",
+          error
+        );
+        useUiStore().addNotification({
+          message: "An error occurred while preparing the download.",
+          type: "error",
+        });
+      }
     },
 
     markAsSaved() {
@@ -249,14 +273,11 @@ export const useSyllabiStore = defineStore("syllabi", {
   },
 
   getters: {
-    getSyllabusById: (state) => (id: string) => {
-      return state.allSyllabi.find((s) => s.id === id);
-    },
-
-    /**
-     * Finds a syllabus based on position and year.
-     * A syllabus is uniquely identified by these two properties.
-     */
+    getSyllabusById:
+      (state) =>
+      (id: string): Syllabus | undefined => {
+        return state.allSyllabi.find((s) => s.id === id);
+      },
     getSyllabusByPositionAndYear:
       (state) =>
       (position: string, year: string): Syllabus | undefined => {
@@ -266,50 +287,33 @@ export const useSyllabiStore = defineStore("syllabi", {
             s.year === year
         );
       },
-
-    /**
-     * Gets all requirements for a given syllabus, with an option to filter by level.
-     */
     getRequirementsForSyllabus:
       (state) =>
       (position: string, year: string, level?: number): Requirement[] => {
-        // CORRECTED LOGIC: Find the syllabus by position and year first.
         const syllabus = state.allSyllabi.find(
           (s) =>
             s.position.toUpperCase() === position.toUpperCase() &&
             s.year === year
         );
-
         if (!syllabus) return [];
-
-        // If a level is provided, filter the requirements from the found syllabus.
-        if (level !== undefined) {
-          return syllabus.requirements.filter((req) => req.level === level);
-        }
-
-        // Otherwise, return all requirements.
-        return syllabus.requirements;
+        return level === undefined
+          ? syllabus.requirements
+          : syllabus.requirements.filter((req) => req.level === level);
       },
-
     getAvailablePositions: (state): string[] => {
-      const positions = new Set<string>();
-      state.allSyllabi.forEach((s) => positions.add(s.position));
+      const positions = new Set(state.allSyllabi.map((s) => s.position));
       return Array.from(positions).sort();
     },
-
     getAvailableYearsForPosition:
       (state) =>
       (position: string): string[] => {
-        const years = new Set<string>();
-        state.allSyllabi
-          .filter((s) => s.position.toUpperCase() === position.toUpperCase())
-          .forEach((s) => years.add(s.year));
+        const years = new Set(
+          state.allSyllabi
+            .filter((s) => s.position.toUpperCase() === position.toUpperCase())
+            .map((s) => s.year)
+        );
         return Array.from(years).sort((a, b) => b.localeCompare(a));
       },
-
-    /**
-     * Gets all distinct levels (e.g., 200, 300) available within a specific syllabus.
-     */
     getAvailableLevels:
       (state) =>
       (position: string, year: string): number[] => {
@@ -319,13 +323,9 @@ export const useSyllabiStore = defineStore("syllabi", {
             s.position.toUpperCase() === position.toUpperCase() &&
             s.year === year
         );
-
-        // CORRECTED LOGIC: If the syllabus is found, iterate through its
-        // requirements to find all unique levels.
         if (syllabus) {
           syllabus.requirements.forEach((req) => levels.add(req.level));
         }
-
         return Array.from(levels).sort((a, b) => a - b);
       },
   },

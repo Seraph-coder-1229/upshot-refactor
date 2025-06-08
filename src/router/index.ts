@@ -7,6 +7,7 @@ import {
 import DashboardView from "../views/DashboardView.vue";
 import AppSettingsView from "../views/AppSettingsView.vue";
 import SyllabusManagementView from "../views/SyllabusManagementView.vue";
+import SyllabusEditView from "@/views/SyllabusEditView.vue";
 import HelpView from "../views/HelpView.vue";
 import PersonnelView from "../views/PersonnelView.vue";
 
@@ -29,6 +30,12 @@ const routes: Array<RouteRecordRaw> = [
     path: "/syllabi",
     name: "syllabi",
     component: SyllabusManagementView,
+  },
+  {
+    path: "/syllabi/edit/:id", // Uses a dynamic parameter for the syllabus ID
+    name: "SyllabusEdit",
+    component: SyllabusEditView,
+    props: true, // This allows the :id to be passed as a prop, which can be useful
   },
   {
     path: "/personnel",
