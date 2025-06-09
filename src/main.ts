@@ -18,11 +18,10 @@ loggingService.logInfo("Application booting up...");
 
 // --- 2. Create Vue Application Instance ---
 const app = createApp(App);
-
+app.use(router);
 // --- 3. Create and Use Pinia for State Management ---
 const pinia = createPinia();
 app.use(pinia);
-app.use(router);
 
 // Make stores available after Pinia is used by the app, especially if they are used by global handlers
 // It's often cleaner if global error handlers call loggingService directly,

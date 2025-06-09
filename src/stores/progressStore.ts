@@ -13,6 +13,7 @@ import {
   calculatePacing,
   calculateProjections,
   calculateReadiness,
+  getPrioritizedRequirements,
 } from "../core/trainingLogicService";
 import { useAppConfigStore } from "./appConfigStore";
 

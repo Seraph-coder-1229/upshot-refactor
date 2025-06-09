@@ -1,6 +1,35 @@
 // src/types/reportTypes.ts
-import { type RequirementType } from "./syllabiTypes";
+import { ReadinessStatus, Upgrader } from "./personnelTypes";
+import { PrioritizedRequirement, type RequirementType } from "./syllabiTypes";
 
+export interface IndividualReport {
+  upgrader: Upgrader; // The full, up-to-date upgrader object
+
+  summary: {
+    readinessAgainstDeadline: ReadinessStatus;
+    pacingAgainstDeadlineDays: number;
+    projectedCompletionDate?: Date;
+  };
+
+  // The prioritized "to-do list" from our logic service
+  priorityTasks: PrioritizedRequirement[];
+}
+
+export interface TrackReport {
+  position: string;
+  year: string;
+
+  // The "watch list" of upgraders needing the most attention
+  prioritizedUpgraders: (Upgrader & { priorityScore: number })[];
+
+  summaryStats: {
+    totalPersonnel: number;
+    numberOnTrack: number;
+    numberAtRisk: number;
+    numberBehind: number;
+    numberBlocked: number;
+  };
+}
 /**
  * Anonymized detail for an event/PQS item for LLM.
  */
