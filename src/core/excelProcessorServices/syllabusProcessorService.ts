@@ -124,43 +124,49 @@ export async function excelSyllabusProcessorService(
     const requirementsMap = new Map<string, Requirement>();
 
     if (eventsSheetData.length > 0) {
-      // Find the header keys from the first row of data
       const firstReqRow = eventsSheetData[0];
+      // Find all the header keys we need, case-insensitively
       const longNameKey = findHeaderKey(firstReqRow, "Long name");
       const shortNameKey = findHeaderKey(firstReqRow, "Short Name");
       const parentKey = findHeaderKey(firstReqRow, "Parent");
       const subtypeKey = findHeaderKey(firstReqRow, "Event Subtype");
       const prereqsKey = findHeaderKey(firstReqRow, "Prerequisites");
-      const requiredKey = findHeaderKey(firstReqRow, "Required"); // Find the "Required" column header
-      if (!longNameKey)
+      const requiredKey = findHeaderKey(firstReqRow, "Required");
+
+      if (!longNameKey || !shortNameKey) {
         throw new Error(
-          "Could not find 'Long name' column in 'Syllabus Events' sheet."
+          "Could not find 'Long name' or 'Short Name' column in 'Syllabus Events' sheet."
         );
+      }
 
       for (const row of eventsSheetData) {
-        const requirementName = row[longNameKey];
-        if (!requirementName) continue;
+        const shortName = row[shortNameKey];
+        if (!shortName) continue; // Use Short Name as the key existence check
 
+        const longName = row[longNameKey] || shortName; // Fallback to short name if long name is empty
         const levelMatch = String(row[parentKey!]).match(/\d+/);
         const level = levelMatch ? parseInt(levelMatch[0], 10) : 0;
-        // --- CORRECTED LOGIC ---
-        // Get the value from the 'Required' column. Default to empty string if null/undefined.
         const requiredValue = requiredKey ? row[requiredKey] || "" : "";
-        // If the value is 'X', it is NOT default waived. Otherwise, it IS default waived.
-        const isDefaultWaived = requiredValue.toUpperCase() !== "X";
-
+        let isDefaultWaived = requiredValue.toUpperCase() !== "X";
+        console.log(subtypeKey, longName);
+        if (row[subtypeKey!].includes("ICW")) {
+          console.log("Identified an ICW", subtypeKey, longName);
+          isDefaultWaived = true;
+        }
         const newRequirement: Requirement = {
-          id: requirementName,
-          name: requirementName,
-          displayName: row[shortNameKey!] || requirementName,
+          id: shortName, // Use the Short Name as the stable ID
+          name: shortName, // Use the Short Name for matching against training data headers
+          displayName: shortName,
+          description: longName, // Store the full name in the description field
           level: level,
           type: mapSubtypeToRequirementType(row[subtypeKey!]),
           rawSharpEventSubtype: row[subtypeKey!],
           prerequisites: (row[prereqsKey!] || "").split("\n").filter(Boolean),
-          isDefaultWaived,
+          isDefaultWaived: isDefaultWaived,
         };
         masterSyllabus.requirements.push(newRequirement);
-        requirementsMap.set(requirementName, newRequirement);
+        // Use the short name as the key for the map as well
+        requirementsMap.set(shortName, newRequirement);
       }
     }
     loggingService.logInfo(

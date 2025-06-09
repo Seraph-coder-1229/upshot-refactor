@@ -2,6 +2,14 @@ import { type Identifiable, type Named } from "./commonTypes";
 import { type CompletedItemRecord } from "./syllabiTypes";
 import { type DetailedCompletionRecord } from "../core/excelProcessorServices/trainingDataProcessorService";
 
+export enum ReadinessStatus {
+  ReadyForNextLevel = "Ready for Next Level",
+  OnTrack = "On Track",
+  AtRisk = "At Risk",
+  BehindSchedule = "Behind Schedule",
+  Blocked = "Blocked",
+  Unknown = "Unknown",
+}
 /**
  * Represents an upgrader (a person undergoing training).
  * This is the central data object for an individual, combining information
@@ -86,4 +94,32 @@ export interface Upgrader extends Identifiable, Named {
 
   /** The completion percentage for Event items at the current derived working level. */
   eventsProgressPercentage?: number;
+
+  /**
+   * The average number of days the upgrader is ahead (positive) or
+   * behind (negative) on their individual requirement 'target' dates.
+   * This is only calculated for non-waived personnel.
+   */
+  pacingAgainstTargetDays?: number;
+
+  /**
+   * An estimation of days the upgrader is ahead (positive) or behind (negative)
+   * based on their overall progress slope towards the final deadline.
+   */
+  pacingAgainstDeadlineDays?: number;
+
+  /** The estimated date the upgrader will complete all PQS requirements. */
+  projectedPqsCompletionDate?: Date;
+
+  /** The estimated date the upgrader will complete all Event requirements. */
+  projectedEventsCompletionDate?: Date;
+
+  /** The latest of the PQS and Event projection dates. */
+  projectedTotalCompletionDate?: Date;
+
+  /** The upgrader's readiness status against the Squadron (Target) goals. */
+  readinessAgainstTarget?: ReadinessStatus;
+
+  /** The upgrader's readiness status against the Wing (Deadline) goals. */
+  readinessAgainstDeadline?: ReadinessStatus;
 }

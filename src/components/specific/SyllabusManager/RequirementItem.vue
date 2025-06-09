@@ -47,6 +47,16 @@
             class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
           />
         </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700">
+            Difficulty
+          </label>
+          <input
+            type="number"
+            v-model.number="editableRequirement.difficulty"
+            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
+          />
+        </div>
       </div>
 
       <div class="pt-2">

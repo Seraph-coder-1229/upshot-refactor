@@ -10,6 +10,8 @@ import SyllabusManagementView from "../views/SyllabusManagementView.vue";
 import SyllabusEditView from "@/views/SyllabusEditView.vue";
 import HelpView from "../views/HelpView.vue";
 import PersonnelView from "../views/PersonnelView.vue";
+import TrainingDataView from "@/views/TrainingDataView.vue";
+import StudentDetailView from "@/views/StudentDetailView.vue";
 
 // You can lazy-load other views if they are large or not immediately needed
 // For now, direct imports are fine for simplicity during setup.
@@ -42,12 +44,17 @@ const routes: Array<RouteRecordRaw> = [
     name: "personnel",
     component: PersonnelView,
   },
-  // {
-  //   path: "/import",
-  //   name: "import",
-  //   component: () =>
-  //     import(/* webpackChunkName: "import" */ "src/views/DataImportView.vue"),
-  // },
+  {
+    path: "/import",
+    name: "import",
+    component: TrainingDataView,
+  },
+  {
+    path: "/personnel/:id", // Uses a dynamic parameter for the upgrader's ID
+    name: "StudentDetail",
+    component: StudentDetailView,
+    props: true,
+  },
   // {
   //   path: "/reports",
   //   name: "reports",

@@ -3,7 +3,6 @@ import { usePersonnelStore } from "./personnelStore";
 import { useUiStore } from "./uiStore";
 import { useSyllabiStore } from "./syllabiStore";
 import { createPersonnelNameMatcher } from "../utils/nameMatcher";
-// Note: Adjusted the import path to match the project structure we defined.
 import {
   processSharpTrainingFile,
   type ProcessedSharpDataMap,
@@ -11,19 +10,22 @@ import {
 import {
   calculateDerivedWorkingLevels,
   calculateProgressMetrics,
+  calculatePacing,
+  calculateProjections,
+  calculateReadiness,
 } from "../core/trainingLogicService";
+import { useAppConfigStore } from "./appConfigStore";
 
 export const useProgressStore = defineStore("progress", {
   state: () => ({
     lastProcessingStats: { matched: 0, unmatched: 0 },
-    // Staging area for data awaiting user confirmation
     pendingSharpData: null as ProcessedSharpDataMap | null,
     detectedTrack: null as string | null,
+    lastMergedUpgraderIds: [] as string[],
   }),
   actions: {
     /**
      * Step 1: Processes a SHARP file and stages it for user confirmation.
-     * This action does NOT merge the data, it only prepares it.
      */
     async loadAndProcessSharpFile(sharpFile: File) {
       const uiStore = useUiStore();
@@ -37,6 +39,7 @@ export const useProgressStore = defineStore("progress", {
         uiStore.addNotification({
           message: "Please load Personnel and Syllabi data first.",
           type: "warning",
+          duration: 5000,
         });
         return;
       }
@@ -49,21 +52,18 @@ export const useProgressStore = defineStore("progress", {
         if (data.size > 0) {
           this.pendingSharpData = data;
           this.detectedTrack = detectedTrack;
-          // This console log is a placeholder for a UI modal that will ask the user to confirm.
-          console.log(
-            `File processed. Detected track: ${detectedTrack}. Awaiting confirmation.`
-          );
           uiStore.addNotification({
             message: `File processed. Detected track: ${
               detectedTrack || "Unknown"
             }. Please confirm to merge.`,
             type: "info",
-            duration: 10000,
+            duration: 3000,
           });
         } else {
           uiStore.addNotification({
             message: "SHARP file processed, but no data was found.",
             type: "warning",
+            duration: 0,
           });
         }
       } catch (error) {
@@ -89,6 +89,7 @@ export const useProgressStore = defineStore("progress", {
       const personnelStore = usePersonnelStore();
       const syllabiStore = useSyllabiStore();
       const uiStore = useUiStore();
+      const appConfigStore = useAppConfigStore();
       const nameMatcher = createPersonnelNameMatcher(
         personnelStore.allPersonnel
       );
@@ -96,14 +97,19 @@ export const useProgressStore = defineStore("progress", {
       const matchedPersonnelIds = new Set<string>();
       const unmatchedNames = new Set<string>();
 
+      // Merge data from the staged 'pendingSharpData'
       for (const [name, studentData] of this.pendingSharpData.entries()) {
         const personnelId = nameMatcher.findMatch(name);
         if (personnelId) {
           matchedPersonnelIds.add(personnelId);
           const upgrader = personnelStore.getPersonnelById(personnelId);
           if (upgrader) {
+            // --- THIS IS THE COMPLETED MERGE LOGIC ---
+            // 1. Update PQS version and status
             upgrader.currentSharpPqsVersion = studentData.pqsVersionName;
             upgrader.pqsVersionStatus = studentData.pqsVersionStatus;
+
+            // 2. Update ACTC Level statuses
             if (!upgrader.actcLevelData) upgrader.actcLevelData = {};
             for (const [
               level,
@@ -113,6 +119,9 @@ export const useProgressStore = defineStore("progress", {
                 upgrader.actcLevelData[level] = {};
               upgrader.actcLevelData[level].status = status;
             }
+
+            // 3. Append all new raw completion records
+            // A more advanced implementation could check for duplicates before pushing
             upgrader.rawCompletions.push(...studentData.completions);
           }
         } else {
@@ -120,7 +129,9 @@ export const useProgressStore = defineStore("progress", {
         }
       }
 
-      // Recalculate levels and metrics for all matched personnel
+      this.lastMergedUpgraderIds = Array.from(matchedPersonnelIds);
+
+      // Recalculate all metrics for matched personnel
       for (const id of matchedPersonnelIds) {
         const upgrader = personnelStore.getPersonnelById(id);
         const syllabus = upgrader
@@ -132,30 +143,36 @@ export const useProgressStore = defineStore("progress", {
         if (upgrader && syllabus) {
           calculateDerivedWorkingLevels(upgrader, syllabus);
           calculateProgressMetrics(upgrader, syllabus);
+          calculatePacing(upgrader, syllabus, appConfigStore.currentConfig);
+          calculateProjections(upgrader, syllabus);
+          calculateReadiness(upgrader, syllabus);
         }
       }
 
-      // Report and clean up the staged data
+      // Report and clean up
       uiStore.addNotification({
         message: `Successfully merged data for ${matchedPersonnelIds.size} personnel.`,
         type: "success",
+        duration: 2000,
       });
       this.pendingSharpData = null;
       this.detectedTrack = null;
     },
 
     /**
-     * Cancels the pending merge operation and clears the staged data.
+     * Cancels the pending merge operation.
      */
     cancelSharpDataMerge() {
       if (this.pendingSharpData) {
         useUiStore().addNotification({
           message: "SHARP data merge has been cancelled.",
           type: "info",
+          duration: 3000,
         });
       }
       this.pendingSharpData = null;
       this.detectedTrack = null;
+      this.lastMergedUpgraderIds = [];
     },
   },
 });

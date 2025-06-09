@@ -27,9 +27,9 @@
           <th
             scope="col"
             class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-            @click="sortBy('sequence')"
+            @click="sortBy('difficulty')"
           >
-            Seq.
+            Difficulty.
           </th>
         </tr>
       </thead>
@@ -52,7 +52,7 @@
             {{ req.level }}
           </td>
           <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-            {{ req.sequence ?? "N/A" }}
+            {{ req.difficulty ?? "N/A" }}
           </td>
         </tr>
       </tbody>

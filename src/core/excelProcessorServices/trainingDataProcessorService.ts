@@ -1,7 +1,11 @@
 import * as XLSX from "xlsx";
 import { excelToJsDate_LocalIntent } from "../../utils/dateUtils";
 import { useUiStore } from "../../stores/uiStore";
+import { loggingService } from "../../utils/loggingService";
 
+const SVC_MODULE = "[TrainingDataProcessor]";
+
+// Type definitions for the data this processor will produce
 export interface DetailedCompletionRecord {
   event: string;
   date: Date;
@@ -27,7 +31,6 @@ export interface ProcessedSharpFile {
 
 function detectTrackFromPqsVersion(pqsVersion: string): string | null {
   if (!pqsVersion) return null;
-  // This regex looks for a 3-letter uppercase word, a common pattern for tracks (AAW, SUW, etc.)
   const match = pqsVersion.match(/\b([A-Z]{3})\b/);
   return match ? match[1] : null;
 }
@@ -41,16 +44,17 @@ export async function processSharpTrainingFile(
 
   try {
     const data = await file.arrayBuffer();
+    // We will not use cellDates, instead handling parsing manually with debugging.
     const workbook = XLSX.read(data, { type: "array" });
+
     const sheets: { [name: string]: any[][] } = {};
     const sheetNames = ["Date Received", "Instructor", "Grade", "Status"];
+
     for (const name of sheetNames) {
       const sheet = workbook.Sheets[name];
       if (!sheet) throw new Error(`Required sheet "${name}" not found.`);
-      sheets[name] = XLSX.utils.sheet_to_json(sheet, {
-        header: 1,
-        blankrows: false,
-      });
+      // Set raw: false to get formatted strings, which helps with string-based dates
+      sheets[name] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
     }
 
     const dateSheetRows = sheets["Date Received"];
@@ -67,18 +71,17 @@ export async function processSharpTrainingFile(
       (cell) => typeof cell === "string" && cell.toUpperCase().includes("NAME")
     );
     const dataStartIndex = headerRowIndex + 1;
+    const pqsVersionName = header[nameColIndex + 1] || "Unknown PQS Version";
+    detectedTrack = detectTrackFromPqsVersion(pqsVersionName);
 
-    // --- NEW: Identify special status columns ---
     const specialColumns = new Map<
       number,
       { type: "pqs" | "actc"; level?: number }
     >();
-    const pqsVersionName = header[nameColIndex + 1] || "Unknown PQS Version";
-    detectedTrack = detectTrackFromPqsVersion(pqsVersionName);
     specialColumns.set(nameColIndex + 1, { type: "pqs" });
     header.forEach((h, i) => {
       if (typeof h === "string") {
-        const actcMatch = h.match(/ACTC\s*(\d{3})/i);
+        const actcMatch = h.match(/Level\s*(\d{3})/i);
         if (actcMatch && actcMatch[1]) {
           specialColumns.set(i, {
             type: "actc",
@@ -87,7 +90,19 @@ export async function processSharpTrainingFile(
         }
       }
     });
+    console.table(
+      [...specialColumns.entries()].map(([colIndex, info]) => ({
+        "Column Index": colIndex,
+        Type: info.type,
+        Level: info.level ?? "N/A",
+      }))
+    );
 
+    loggingService.logInfo(
+      `${SVC_MODULE} Starting to process ${
+        dateSheetRows.length - dataStartIndex
+      } student rows...`
+    );
     for (let i = dataStartIndex; i < dateSheetRows.length; i++) {
       const name = sheets["Date Received"][i][nameColIndex];
       if (!name) continue;
@@ -99,32 +114,54 @@ export async function processSharpTrainingFile(
         actcLevelStatuses: new Map(),
       };
 
-      // --- Process special and event columns ---
+      loggingService.logDebug(`${SVC_MODULE} Processing row for: ${name}`);
+
       for (let j = nameColIndex + 1; j < header.length; j++) {
         const eventName = header[j];
         if (!eventName) continue;
-
-        // Handle as a special status column
         if (specialColumns.has(j)) {
-          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
           const specialInfo = specialColumns.get(j)!;
-          const statusValue = sheets["Date Received"][i][j]; // Status is consistent across sheets
-          if (specialInfo.type === "pqs") {
-            studentData.pqsVersionStatus = statusValue;
-          } else if (specialInfo.type === "actc" && specialInfo.level) {
-            studentData.actcLevelStatuses.set(specialInfo.level, statusValue);
+          if (specialInfo.type === "actc" && specialInfo.level) {
+            const status = sheets["Status"][i][j] || "Not Started";
+            studentData.actcLevelStatuses.set(specialInfo.level, status);
+            continue; // Skip ACTC level columns
           }
         }
-        // Handle as a regular event completion column
-        else {
-          const dateValue = sheets["Date Received"][i][j];
-          if (!dateValue || typeof dateValue !== "number") continue;
-          const date = excelToJsDate_LocalIntent(dateValue);
-          if (!date) continue;
 
+        const dateValue = sheets["Date Received"][i][j];
+        let parsedDate: Date | null = null;
+
+        if (dateValue != null && dateValue !== "") {
+          // --- DEBUGGING LOGIC ---
+          loggingService.logDebug(
+            `${SVC_MODULE}   Event: "${eventName}", Raw Value: "${dateValue}", Type: ${typeof dateValue}`
+          );
+
+          if (typeof dateValue === "number") {
+            parsedDate = excelToJsDate_LocalIntent(dateValue);
+            loggingService.logDebug(
+              `${SVC_MODULE}     -> Parsed as Excel Number. Result: ${parsedDate?.toISOString()}`
+            );
+          } else if (typeof dateValue === "string") {
+            const d = new Date(dateValue);
+            if (!isNaN(d.getTime())) {
+              parsedDate = d;
+              loggingService.logDebug(
+                `${SVC_MODULE}     -> Parsed as String. Result: ${parsedDate?.toISOString()}`
+              );
+            }
+          } else if (dateValue instanceof Date && !isNaN(dateValue.getTime())) {
+            parsedDate = dateValue;
+            loggingService.logDebug(
+              `${SVC_MODULE}     -> Value was already a JS Date object.`
+            );
+          }
+        }
+
+        if (parsedDate) {
           studentData.completions.push({
             event: eventName,
-            date: date,
+            date: parsedDate,
             instructor: sheets["Instructor"][i]?.[j] || undefined,
             grade: sheets["Grade"][i]?.[j] || undefined,
             status: sheets["Status"][i]?.[j] || undefined,
@@ -141,5 +178,7 @@ export async function processSharpTrainingFile(
     });
     return { detectedTrack: null, data: new Map() };
   }
+  console.log(`${SVC_MODULE} Processed ${processedData.size} student records.`);
+  console.log(processedData);
   return { detectedTrack, data: processedData };
 }

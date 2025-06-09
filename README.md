@@ -184,9 +184,9 @@ A help section/modal within the application will provide:
 
 ## Phase 6: Core Calculations & Utilities
 * [X] Fully implement src/utils/dateUtils.ts.
-* [ ] Implement src/core/trainingLogicService.ts (progress metrics, projections, difficulty factoring, priority, readiness).
-* [ ] Implement src/core/syllabusLogicService.ts (prerequisite resolution, waiver logic).
-* [ ] Integrate calls within progressStore actions.
+* [X] Implement src/core/trainingLogicService.ts (progress metrics, projections, difficulty factoring, priority, readiness).
+* [X] Implement src/core/syllabusLogicService.ts (prerequisite resolution, waiver logic).
+* [X] Integrate calls within progressStore actions.
 
 ## Phase 7: Reports & Visualizations
 * [ ] **Define Data Structures for Reports:** Finalize structures in src/types/reportTypes.ts for both UI display and LLM-compatible JSON output.

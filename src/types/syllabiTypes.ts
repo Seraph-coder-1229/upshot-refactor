@@ -20,6 +20,9 @@ export interface Requirement extends Identifiable, Named {
   /** The type of this requirement, used for filtering and logic. */
   type: RequirementType;
 
+  /** The full description of the requirement, from the 'Long name' column. */
+  description: string;
+
   /** A suggested order for completing events within a level. From the "Default" sheet. */
   sequence?: number;
 
@@ -73,6 +76,16 @@ export interface CompletedItemRecord {
   isActualCompletion: boolean;
   isSyllabusWaived?: boolean;
   isIndividuallyWaived?: boolean;
+}
+
+/**
+ * Extends the base Requirement type with additional, dynamically calculated
+ * properties related to its priority for a specific upgrader.
+ */
+export interface PrioritizedRequirement extends Requirement {
+  priorityScore: number;
+  isAvailable: boolean; // Is the requirement available to be worked on now?
+  unlocks: number; // How many other requirements does this unlock?
 }
 
 // Global augmentation for window object
