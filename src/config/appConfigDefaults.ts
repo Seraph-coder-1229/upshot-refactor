@@ -2,6 +2,7 @@ import {
   type AppConfig,
   type TrainingDepartmentPersonnelSetting,
   type PositionLevelDeadlines,
+  PositionSetting,
 } from "../types/appConfigTypes";
 
 // Default Training Department Personnel
@@ -41,13 +42,30 @@ const ewoDeadlines: PositionLevelDeadlines = {
   // Add 400 if applicable
 };
 
+const ewoSettings: PositionSetting = {
+  useDerivedLevels: true,
+  deadlines: ewoDeadlines,
+};
+const aawSettings: PositionSetting = {
+  useDerivedLevels: true,
+  deadlines: aawDeadlines,
+};
+const nfoSettings: PositionSetting = {
+  useDerivedLevels: true,
+  deadlines: nfoDeadlines,
+};
+const pilotSettings: PositionSetting = {
+  useDerivedLevels: true,
+  deadlines: pilotDeadlines,
+};
+
 export const defaultConfig: AppConfig = {
   version: 1,
-  curveDeadlines: {
-    PILOT: pilotDeadlines,
-    NFO: nfoDeadlines,
-    AAW: aawDeadlines,
-    EWO: ewoDeadlines,
+  positionSettings: {
+    PILOT: pilotSettings,
+    NFO: nfoSettings,
+    AAW: aawSettings,
+    EWO: ewoSettings,
     // Add other positions as needed
   },
   useRoundedTrainingStartDate: true,

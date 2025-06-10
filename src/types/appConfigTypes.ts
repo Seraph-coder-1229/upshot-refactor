@@ -6,7 +6,11 @@ export interface CurveDeadlineSetting {
 }
 
 export interface PositionLevelDeadlines {
-  [level: number]: CurveDeadlineSetting; // e.g., 200: { target: 6, deadline: 12 }
+  [level: string]: CurveDeadlineSetting; // e.g., 200: { target: 6, deadline: 12 }
+}
+export interface PositionSetting {
+  useDerivedLevels: boolean;
+  deadlines: PositionLevelDeadlines;
 }
 
 export interface TrainingDepartmentPersonnelSetting {
@@ -20,9 +24,8 @@ export interface TrainingDepartmentPersonnelSetting {
 
 export interface AppConfig {
   version: number;
-  curveDeadlines: {
-    // Key is the position string (e.g., "PILOT", "NFO", "EWO", "AAW")
-    [positionKey: string]: PositionLevelDeadlines;
+  positionSettings: {
+    [positionKey: string]: PositionSetting;
   };
   useRoundedTrainingStartDate: boolean;
   // ... other config properties ...

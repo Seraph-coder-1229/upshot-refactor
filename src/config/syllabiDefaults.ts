@@ -11,7 +11,7 @@ const examplePqsRequirement: Requirement = {
   displayName: "Basic Safety (D)",
   // CORRECTED: Use the 'type' property and the RequirementType enum
   type: RequirementType.PQS,
-  level: 200,
+  level: "200",
   prerequisites: [],
   isDefaultWaived: false,
   description: "",
@@ -24,7 +24,7 @@ const exampleEventRequirement: Requirement = {
   displayName: "Intro Sim (D)",
   // CORRECTED: Use the 'type' property and the RequirementType enum
   type: RequirementType.Event,
-  level: 200,
+  level: "200",
   prerequisites: ["Basic Safety Procedures (Default)"], // Depends on the PQS above
   isDefaultWaived: false,
   description: "",
@@ -38,7 +38,7 @@ const exampleDefaultSyllabus: Syllabus = {
   position: "PILOT",
   year: "202X", // Placeholder year
   // CORRECTED: Use 'baseLevel' instead of 'level' for the syllabus
-  baseLevel: 200,
+  baseLevel: "200",
   requirements: [examplePqsRequirement, exampleEventRequirement],
   masterSyllabusIdentifier: null,
 };

@@ -66,7 +66,7 @@ window.UPSHOT_USER_SYLLABI = [
         "type": "PQS",
         "rawSharpEventSubtype": "ICW (Classified)",
         "prerequisites": [],
-        "isDefaultWaived": false,
+        "isDefaultWaived": true,
         "sequence": 5
       },
       {
@@ -102,7 +102,7 @@ window.UPSHOT_USER_SYLLABI = [
         "type": "Board",
         "rawSharpEventSubtype": "BOARD",
         "prerequisites": [],
-        "isDefaultWaived": false,
+        "isDefaultWaived": true,
         "sequence": 8
       },
       {
@@ -222,7 +222,7 @@ window.UPSHOT_USER_SYLLABI = [
         "type": "PQS",
         "rawSharpEventSubtype": "ICW (Classified)",
         "prerequisites": [],
-        "isDefaultWaived": false,
+        "isDefaultWaived": true,
         "sequence": 26
       },
       {
@@ -1051,7 +1051,7 @@ window.UPSHOT_USER_SYLLABI = [
         "type": "PQS",
         "rawSharpEventSubtype": "ICW (Classified)",
         "prerequisites": [],
-        "isDefaultWaived": false,
+        "isDefaultWaived": true,
         "sequence": 43
       },
       {

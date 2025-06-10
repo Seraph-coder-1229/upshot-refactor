@@ -12,7 +12,7 @@ import HelpView from "../views/HelpView.vue";
 import PersonnelView from "../views/PersonnelView.vue";
 import TrainingDataView from "@/views/TrainingDataView.vue";
 import StudentDetailView from "@/views/StudentDetailView.vue";
-
+import ReportsView from "@/views/ReportsView.vue"; // <-- ADD THIS
 // You can lazy-load other views if they are large or not immediately needed
 // For now, direct imports are fine for simplicity during setup.
 
@@ -55,12 +55,11 @@ const routes: Array<RouteRecordRaw> = [
     component: StudentDetailView,
     props: true,
   },
-  // {
-  //   path: "/reports",
-  //   name: "reports",
-  //   component: () =>
-  //     import(/* webpackChunkName: "reports" */ "../views/ReportsView.vue"),
-  // },
+  {
+    path: "/reports", // <-- ADD THIS ROUTE
+    name: "reports",
+    component: ReportsView,
+  },
   // {
   //   path: "/flight-hours",
   //   name: "flightHours",

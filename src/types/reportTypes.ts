@@ -1,4 +1,3 @@
-// src/types/reportTypes.ts
 import { ReadinessStatus, Upgrader } from "./personnelTypes";
 import { PrioritizedRequirement, type RequirementType } from "./syllabiTypes";
 
@@ -34,14 +33,11 @@ export interface TrackReport {
  * Anonymized detail for an event/PQS item for LLM.
  */
 export interface LLMAnonymizedEventDetail {
-  itemName: string; // Requirement.displayName or Requirement.name (these are syllabus items, generally not PII)
+  itemName: string;
   requirementType: RequirementType;
-  // completionDate?: string;      // Consider if exact dates are too revealing in context. Relative (e.g., "completed last month") might be better.
-  status?: string | null; // e.g., "Pass - Signed Off", "Failed", "Waived"
+  status?: string | null;
   difficulty?: number | null;
   prerequisitesMet?: boolean;
-  // missingPrerequisites?: string[];// List of item names (again, syllabus items)
-  // projectedReadyDate?: string | null;
 }
 
 /**
@@ -49,9 +45,9 @@ export interface LLMAnonymizedEventDetail {
  */
 export interface LLMAnonymizedUpgraderReportData {
   anonymizedUpgraderId: string; // HASHED version of Upgrader.id
-  assignedPosition: string; // e.g., "PILOT", "NFO" (if deemed non-sensitive)
-  currentPqsWorkingLevel?: number;
-  currentEventsWorkingLevel?: number;
+  assignedPosition: string;
+  currentPqsWorkingLevel?: string;
+  currentEventsWorkingLevel?: string;
   overallStatus:
     | "on_track"
     | "ahead"
@@ -59,19 +55,20 @@ export interface LLMAnonymizedUpgraderReportData {
     | "at_risk"
     | "complete"
     | "data_pending"
-    | "not_started";
-  summaryPoints?: string[]; // Bullet points of key observations for LLM to expand upon
-  completedLastMonthCount?: number; // Count instead of list of names for more privacy
+    | "not_started"
+    | "blocked";
+  summaryPoints?: string[];
+  completedLastMonthCount?: number;
   upcomingPriorityItemCount?: number;
   blockerCount?: number;
-  notesForLLMContext?: string; // Generic context without PII
+  notesForLLMContext?: string;
 }
 
 /**
  * Data for LLM report, focusing on a specific position and ACTC level.
  */
 export interface LLMAnonymizedPositionLevelReportData {
-  positionName: string; // e.g., "PILOT"
+  positionName: string;
   level: number;
   overallLevelSummaryPoints?: string[];
   upgraderReports: LLMAnonymizedUpgraderReportData[];
@@ -82,6 +79,6 @@ export interface LLMAnonymizedPositionLevelReportData {
  */
 export interface LLMAnonymizedMultiPositionMonthlyReport {
   reportGeneratedDate: string; // YYYY-MM-DD
-  overallOrganisationalSummaryPoints?: string[]; // Key summary points for LLM
+  overallOrganisationalSummaryPoints?: string[];
   positions: LLMAnonymizedPositionLevelReportData[];
 }

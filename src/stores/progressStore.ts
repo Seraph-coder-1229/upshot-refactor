@@ -100,7 +100,7 @@ export const useProgressStore = defineStore("progress", {
 
       // Merge data from the staged 'pendingSharpData'
       for (const [name, studentData] of this.pendingSharpData.entries()) {
-        const personnelId = nameMatcher.findMatch(name);
+        const personnelId = nameMatcher.findMatch(name, this.detectedTrack);
         if (personnelId) {
           matchedPersonnelIds.add(personnelId);
           const upgrader = personnelStore.getPersonnelById(personnelId);
@@ -142,10 +142,18 @@ export const useProgressStore = defineStore("progress", {
             )
           : undefined;
         if (upgrader && syllabus) {
-          calculateDerivedWorkingLevels(upgrader, syllabus);
+          calculateDerivedWorkingLevels(
+            upgrader,
+            syllabus,
+            appConfigStore.currentConfig
+          );
           calculateProgressMetrics(upgrader, syllabus);
           calculatePacing(upgrader, syllabus, appConfigStore.currentConfig);
-          calculateProjections(upgrader, syllabus);
+          calculateProjections(
+            upgrader,
+            syllabus,
+            appConfigStore.currentConfig
+          );
           calculateReadiness(upgrader, syllabus);
         }
       }

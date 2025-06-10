@@ -109,7 +109,7 @@ export async function excelSyllabusProcessorService(
       displayName: syllabusInfo[syllabusTitleKey!] || "Unknown Syllabus",
       position: parsedInfo.position.toUpperCase(),
       year: parsedInfo.year,
-      baseLevel: 200,
+      baseLevel: "200",
       requirements: [],
       masterSyllabusIdentifier: null,
     };
@@ -145,7 +145,7 @@ export async function excelSyllabusProcessorService(
 
         const longName = row[longNameKey] || shortName; // Fallback to short name if long name is empty
         const levelMatch = String(row[parentKey!]).match(/\d+/);
-        const level = levelMatch ? parseInt(levelMatch[0], 10) : 0;
+        const level = levelMatch ? levelMatch[0] : "0";
         const requiredValue = requiredKey ? row[requiredKey] || "" : "";
         let isDefaultWaived = requiredValue.toUpperCase() !== "X";
         console.log(subtypeKey, longName);

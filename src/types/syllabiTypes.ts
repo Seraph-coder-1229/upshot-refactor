@@ -1,8 +1,5 @@
 import { type Identifiable, type Named } from "./commonTypes";
 
-/**
- * The definitive enumeration for requirement types.
- */
 export enum RequirementType {
   PQS = "PQS",
   Event = "Event",
@@ -10,54 +7,35 @@ export enum RequirementType {
   Other = "Other",
 }
 
-/**
- * Represents a single requirement or event within a syllabus.
- */
 export interface Requirement extends Identifiable, Named {
-  /** The qualification level this requirement belongs to (e.g., 200, 300). */
-  level: number;
-
-  /** The type of this requirement, used for filtering and logic. */
+  id: string; // Should be the "Short Name" for matching
+  name: string; // Should also be the "Short Name"
+  displayName: string;
+  description: string; // The "Long name" from the syllabus file
+  level: string; // Can be "200", "300", "400MC", etc.
   type: RequirementType;
-
-  /** The full description of the requirement, from the 'Long name' column. */
-  description: string;
-
-  /** A suggested order for completing events within a level. From the "Default" sheet. */
   sequence?: number;
-
-  /** A list of other requirement 'name's that must be completed before this one. */
   prerequisites?: string[];
-
-  /** An optional difficulty rating for the requirement. */
-  difficulty?: number;
-
-  /** Whether this requirement is typically waived by default. */
-  isDefaultWaived?: boolean;
-
-  // Other properties from your file are kept for your use
+  isDefaultWaived: boolean;
   rawSharpEventSubtype?: string;
-  squadronGoalMonths?: number;
-  goalStartMonthsOffset?: number;
+  difficulty?: number;
 }
 
-/**
- * Represents a full syllabus for a given position and year.
- */
 export interface Syllabus extends Identifiable, Named {
+  id: string;
+  name: string;
+  displayName: string;
   position: string;
   year: string;
-  displayName: string;
-  /** The base qualification level for this syllabus (e.g., 200). */
-  baseLevel: number;
-
-  /** The full list of requirements for this syllabus. */
+  baseLevel: string; // The starting level, e.g., "200"
   requirements: Requirement[];
-
   masterSyllabusIdentifier: string | null;
-  // Other properties from your file
-  pqsVersionRef?: string;
-  wingGoalMonths?: number;
+}
+
+export interface PrioritizedRequirement extends Requirement {
+  priorityScore: number;
+  isAvailable: boolean;
+  unlocks: number;
 }
 
 /**
