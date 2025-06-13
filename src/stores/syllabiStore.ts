@@ -1,3 +1,5 @@
+// src/stores/syllabiStore.ts
+
 import { defineStore } from "pinia";
 import { type Syllabus, type Requirement } from "../types/syllabiTypes";
 import { DEFAULT_SYLLABI } from "../config/syllabiDefaults";
@@ -52,8 +54,8 @@ export const useSyllabiStore = defineStore("syllabi", {
       (position: string, year: string): Syllabus | undefined => {
         return state.allSyllabi.find(
           (s) =>
-            s.position.toUpperCase() === position.toUpperCase() &&
-            s.year === year
+            s.position.toUpperCase().trim() === position.toUpperCase().trim() &&
+            s.year.trim() === year.trim()
         );
       },
     getRequirementsForSyllabus:
@@ -61,16 +63,18 @@ export const useSyllabiStore = defineStore("syllabi", {
       (position: string, year: string, level?: string): Requirement[] => {
         const syllabus = state.allSyllabi.find(
           (s) =>
-            s.position.toUpperCase() === position.toUpperCase() &&
-            s.year === year
+            s.position.toUpperCase().trim() === position.toUpperCase().trim() &&
+            s.year.trim() === year.trim()
         );
         if (!syllabus) return [];
         return level === undefined
           ? syllabus.requirements
-          : syllabus.requirements.filter((req) => req.level === level);
+          : syllabus.requirements.filter(
+              (req) => String(req.level).trim() === level.trim()
+            );
       },
     getAvailablePositions: (state): string[] => {
-      const positions = new Set(state.allSyllabi.map((s) => s.position));
+      const positions = new Set(state.allSyllabi.map((s) => s.position.trim()));
       return Array.from(positions).sort();
     },
     getAvailableYearsForPosition:
@@ -78,27 +82,29 @@ export const useSyllabiStore = defineStore("syllabi", {
       (position: string): string[] => {
         const years = new Set(
           state.allSyllabi
-            .filter((s) => s.position.toUpperCase() === position.toUpperCase())
-            .map((s) => s.year)
+            .filter(
+              (s) =>
+                s.position.toUpperCase().trim() ===
+                position.toUpperCase().trim()
+            )
+            .map((s) => s.year.trim())
         );
         return Array.from(years).sort((a, b) => b.localeCompare(a));
       },
-    /**
-     * Gets all distinct levels (e.g., "200", "400MC") available within a specific syllabus.
-     */
     getAvailableLevels:
       (state) =>
       (position: string, year: string): string[] => {
         const levels = new Set<string>();
         const syllabus = state.allSyllabi.find(
           (s) =>
-            s.position.toUpperCase() === position.toUpperCase() &&
-            s.year === year
+            s.position.toUpperCase().trim() === position.toUpperCase().trim() &&
+            s.year.trim() === year.trim()
         );
         if (syllabus) {
-          syllabus.requirements.forEach((req) => levels.add(req.level));
+          syllabus.requirements.forEach((req) =>
+            levels.add(String(req.level).trim())
+          );
         }
-        // Use localeCompare for alphanumeric sorting
         return Array.from(levels).sort((a, b) =>
           a.localeCompare(b, undefined, { numeric: true })
         );

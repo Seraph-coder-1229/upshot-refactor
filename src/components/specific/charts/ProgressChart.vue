@@ -6,7 +6,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, PropType, defineProps } from "vue";
-import { Chart, registerables, type ChartItem } from "chart.js";
+import { Chart, registerables } from "chart.js";
 import type { Upgrader } from "@/types/personnelTypes";
 import { RequirementType, type Syllabus } from "@/types/syllabiTypes";
 import { addDays, daysBetween, getTodayUtc } from "@/utils/dateUtils";
@@ -30,7 +30,6 @@ const chartCanvas = ref<HTMLCanvasElement | null>(null);
 let chartInstance: Chart | null = null;
 
 onMounted(() => {
-  // --- SAFETY CHECKS ---
   if (!chartCanvas.value) return;
 
   const appConfigStore = useAppConfigStore();
@@ -43,7 +42,6 @@ onMounted(() => {
 
   if (!syllabus) return;
 
-  // --- CORRECTED LOGIC: Use the upgrader's CURRENT working level ---
   const currentLevel =
     props.chartType === RequirementType.PQS
       ? props.upgrader.derivedPqsWorkingLevel
@@ -51,17 +49,12 @@ onMounted(() => {
 
   if (!currentLevel) return;
 
-  // --- CORRECTED LOGIC: Access the new config structure ---
   const deadlines =
     appConfigStore.currentConfig.positionSettings[
       props.upgrader.assignedPosition
     ]?.deadlines[currentLevel];
-  if (!deadlines) {
-    console.warn(
-      `No deadlines found for ${props.upgrader.assignedPosition} L${currentLevel}. Cannot render chart.`
-    );
-    return;
-  }
+
+  if (!deadlines) return;
 
   const { targetMonths, deadlineMonths } = deadlines;
   const labels = Array.from(
@@ -69,10 +62,9 @@ onMounted(() => {
     (_, i) => `Month ${i}`
   );
 
-  // --- CORRECTED LOGIC: Calculate progress WITHIN the current level, not cumulatively ---
   const reqsForCurrentLevel = syllabus.requirements.filter(
     (r) =>
-      r.level === currentLevel &&
+      String(r.level) === currentLevel &&
       r.type === props.chartType &&
       !r.isDefaultWaived
   );
@@ -100,7 +92,6 @@ onMounted(() => {
   const lastKnownProgress =
     lastValidIndex > -1 ? actualData[lastValidIndex] : 0;
 
-  // --- Projection logic (remains the same, but now projects from current level's progress) ---
   const projectionDate =
     props.chartType === RequirementType.PQS
       ? props.upgrader.projectedPqsCompletionDate
@@ -120,19 +111,81 @@ onMounted(() => {
     }
   }
 
-  // --- Chart Rendering ---
   const ctx = chartCanvas.value.getContext("2d");
   if (ctx) {
     chartInstance = new Chart(ctx, {
       type: "line",
       data: {
         labels,
+        // --- FIX ---
+        // The datasets array was empty before. It is now correctly populated.
         datasets: [
-          // ... (datasets for Target, Deadline, Actual, and Projection are the same)
+          {
+            label: "Squadron Target",
+            data: labels.map((_, i) =>
+              targetMonths > 0 ? (100 / targetMonths) * i : null
+            ),
+            borderColor: "rgba(234, 179, 8, 0.7)",
+            borderDash: [10, 5],
+            pointRadius: 0,
+            fill: false,
+          },
+          {
+            label: "Wing Deadline",
+            data: labels.map((_, i) =>
+              deadlineMonths > 0 ? (100 / deadlineMonths) * i : null
+            ),
+            borderColor: "rgba(220, 38, 38, 0.7)",
+            borderDash: [10, 5],
+            pointRadius: 0,
+            fill: false,
+          },
+          {
+            label: "Actual Progress",
+            data: actualData,
+            borderColor: "rgba(59, 130, 246, 1)",
+            backgroundColor: "rgba(59, 130, 246, 0.1)",
+            tension: 0.1,
+            fill: false,
+          },
+          {
+            label: "Projection",
+            data: projectionData,
+            borderColor: "rgba(22, 163, 74, 1)",
+            borderDash: [3, 4],
+            pointRadius: 0,
+            fill: false,
+          },
         ],
       },
       options: {
-        // ... (options are the same)
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: "top",
+          },
+          title: {
+            display: true,
+            text: `${props.chartType} Progress`,
+          },
+        },
+        scales: {
+          y: {
+            min: 0,
+            max: 100,
+            title: {
+              display: true,
+              text: "% Complete",
+            },
+          },
+          x: {
+            title: {
+              display: true,
+              text: "Months Since Start Date",
+            },
+          },
+        },
       },
     });
   }

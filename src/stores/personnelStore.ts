@@ -39,19 +39,14 @@ export const usePersonnelStore = defineStore("personnel", {
    * Getters for derived state.
    */
   getters: {
-    /**
-     * Returns a function to get a person by their ID.
-     * @param state - The store's state.
-     * @returns {(id: string) => Upgrader | undefined} A function that takes an ID and returns the corresponding upgrader or undefined.
-     */
     getPersonnelById: (state) => {
-      return (id: string): Upgrader | undefined => state.personnelMap.get(id);
+      return (id: string): Upgrader | undefined => {
+        // Trim both the lookup ID and the ID from the personnel object
+        // to handle potential whitespace issues from the source data.
+        const trimmedId = id ? id.trim() : "";
+        return state.allPersonnel.find((p) => p.id.trim() === trimmedId);
+      };
     },
-    /**
-     * Returns all personnel sorted by name.
-     * @param state - The store's state.
-     * @returns {Upgrader[]} A sorted array of upgraders.
-     */
     allPersonnelSortedByName: (state): Upgrader[] => {
       return [...state.allPersonnel].sort((a, b) =>
         a.name.localeCompare(b.name)
@@ -109,15 +104,13 @@ export const usePersonnelStore = defineStore("personnel", {
     },
 
     /**
-     * Sets the personnel data, replacing any existing data.
+     * Sets the main personnel data. This is the final step in the new flow.
      * @param {Upgrader[]} personnelList - The list of personnel to load.
      */
     setPersonnel(personnelList: Upgrader[]) {
       try {
         this.allPersonnel = personnelList;
-        this.personnelMap = new Map(personnelList.map((p) => [p.id, p]));
-        this.isDataLoaded = true;
-        this.isDirty = false;
+        this.isDataLoaded = personnelList.length > 0;
       } catch (error) {
         const uiStore = useUiStore();
         uiStore.addNotification({
@@ -166,9 +159,7 @@ export const usePersonnelStore = defineStore("personnel", {
      */
     clearPersonnel() {
       this.allPersonnel = [];
-      this.personnelMap.clear();
       this.isDataLoaded = false;
-      this.isDirty = false;
     },
   },
 });

@@ -1,88 +1,69 @@
-import {
-  createRouter,
-  createWebHashHistory,
-  type RouteRecordRaw,
-} from "vue-router";
-// Import your new views
-import DashboardView from "../views/DashboardView.vue";
-import AppSettingsView from "../views/AppSettingsView.vue";
-import SyllabusManagementView from "../views/SyllabusManagementView.vue";
-import SyllabusEditView from "@/views/SyllabusEditView.vue";
-import HelpView from "../views/HelpView.vue";
-import PersonnelView from "../views/PersonnelView.vue";
-import TrainingDataView from "@/views/TrainingDataView.vue";
-import StudentDetailView from "@/views/StudentDetailView.vue";
-import ReportsView from "@/views/ReportsView.vue"; // <-- ADD THIS
-// You can lazy-load other views if they are large or not immediately needed
-// For now, direct imports are fine for simplicity during setup.
+// src/router/index.ts
 
-const routes: Array<RouteRecordRaw> = [
+import { createRouter, createWebHistory } from "vue-router";
+import DashboardView from "../views/DashboardView.vue";
+
+// Report Views
+import ReportsView from "../views/ReportsView.vue"; // This is the new dashboard
+import IndividualReportListView from "../views/IndividualReportListView.vue";
+import TrackReportView from "../views/TrackReportView.vue"; // The old reports view, now for tracks
+import MonthlyReportView from "../views/MonthlyReportView.vue";
+import LlmReportView from "../views/LlmReportView.vue";
+import StudentDetailView from "../views/StudentDetailView.vue";
+
+// Other Main Views
+import PersonnelUploadView from "../views/PersonnelUploadView.vue";
+import TrainingUploadView from "../views/TrainingUploadView.vue";
+import SettingsSyllabiView from "../views/SettingsSyllabiView.vue";
+import HelpView from "../views/HelpView.vue";
+import LogsView from "../views/LogsView.vue";
+
+const routes = [
+  { path: "/", name: "Dashboard", component: DashboardView },
   {
-    path: "/",
-    name: "dashboard",
-    component: DashboardView,
+    path: "/personnel-upload",
+    name: "PersonnelUpload",
+    component: PersonnelUploadView,
   },
   {
-    path: "/settings",
-    name: "settings",
-    // Example of direct import if you created AppSettingsView.vue
-    component: AppSettingsView,
+    path: "/training-upload",
+    name: "TrainingUpload",
+    component: TrainingUploadView,
   },
+
+  // New Nested Report Routes
+  { path: "/reports", name: "Reports", component: ReportsView },
   {
-    path: "/syllabi",
-    name: "syllabi",
-    component: SyllabusManagementView,
+    path: "/reports/individual",
+    name: "IndividualReportList",
+    component: IndividualReportListView,
   },
+  { path: "/reports/track", name: "TrackReport", component: TrackReportView },
   {
-    path: "/syllabi/edit/:id", // Uses a dynamic parameter for the syllabus ID
-    name: "SyllabusEdit",
-    component: SyllabusEditView,
-    props: true, // This allows the :id to be passed as a prop, which can be useful
+    path: "/reports/monthly",
+    name: "MonthlyReport",
+    component: MonthlyReportView,
   },
+  { path: "/reports/llm", name: "LlmReport", component: LlmReportView },
+
   {
-    path: "/personnel",
-    name: "personnel",
-    component: PersonnelView,
-  },
-  {
-    path: "/import",
-    name: "import",
-    component: TrainingDataView,
-  },
-  {
-    path: "/personnel/:id", // Uses a dynamic parameter for the upgrader's ID
+    path: "/student/:id",
     name: "StudentDetail",
     component: StudentDetailView,
     props: true,
   },
+
+  { path: "/settings", name: "Settings", component: SettingsSyllabiView },
+  { path: "/help", name: "Help", component: HelpView },
+  { path: "/logs", name: "Logs", component: LogsView },
   {
-    path: "/reports", // <-- ADD THIS ROUTE
-    name: "reports",
-    component: ReportsView,
+    path: "/:pathMatch(.*)*",
+    redirect: "/",
   },
-  // {
-  //   path: "/flight-hours",
-  //   name: "flightHours",
-  //   component: () =>
-  //     import(
-  //       /* webpackChunkName: "flightHours" */ "src/views/FlightHoursView.vue"
-  //     ),
-  // },
-  {
-    path: "/help",
-    name: "help",
-    component: HelpView,
-  },
-  // Remove or comment out the old '/about' route if not used
-  // {
-  //   path: '/about',
-  //   name: 'about',
-  //   component: () => import(/* webpackChunkName: "about" */ '../views/AboutView.vue')
-  // }
 ];
 
 const router = createRouter({
-  history: createWebHashHistory(process.env.BASE_URL), // process.env.BASE_URL is good practice
+  history: createWebHistory(process.env.BASE_URL),
   routes,
 });
 

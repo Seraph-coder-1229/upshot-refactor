@@ -1,8 +1,4 @@
-/**
- * @file This service contains the core "brains" of the application.
- * It is responsible for all dynamic calculations related to upgrader progress,
- * projections, pacing, priority, and readiness.
- */
+// src/core/trainingLogicService.ts
 
 import { type Upgrader, ReadinessStatus } from "../types/personnelTypes";
 import {
@@ -43,31 +39,36 @@ export function calculateDerivedWorkingLevels(
     true;
 
   if (!useDerivedLevels) {
-    upgrader.derivedPqsWorkingLevel = String(upgrader.targetQualificationLevel);
+    upgrader.derivedPqsWorkingLevel = String(
+      upgrader.targetQualificationLevel
+    ).trim();
     upgrader.derivedEventsWorkingLevel = String(
       upgrader.targetQualificationLevel
-    );
+    ).trim();
     return;
   }
 
   const completedEventNames = new Set(
     upgrader.rawCompletions.map((c) => c.event.toUpperCase())
   );
+
   const levelsToCheck = Array.from(
-    new Set(syllabus.requirements.map((r) => r.level))
-  ).sort((a, b) =>
-    String(a).localeCompare(String(b), undefined, { numeric: true })
-  );
+    new Set(syllabus.requirements.map((r) => String(r.level).trim()))
+  ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
   let highestPqsLevelCompleted = "0";
 
   for (const level of levelsToCheck) {
     const isUnlocked =
-      parseInt(String(level)) < 400 ||
-      upgrader.manuallyUnlockedLevels?.includes(parseInt(String(level)));
+      parseInt(level) < 400 ||
+      upgrader.manuallyUnlockedLevels?.includes(parseInt(level));
     if (!isUnlocked) continue;
 
     const pqsForLevel = syllabus.requirements.filter(
-      (r) => r.level === level && r.type === RequirementType.PQS
+      (r) =>
+        String(r.level).trim() === level &&
+        r.type === RequirementType.PQS &&
+        !isRequirementWaived(r, upgrader)
     );
     const allIndividualPqsItemsComplete =
       pqsForLevel.length > 0 &&
@@ -80,7 +81,7 @@ export function calculateDerivedWorkingLevels(
       actcLevelStatus === "COMPLETE" || actcLevelStatus === "ACTIVE";
 
     if (allIndividualPqsItemsComplete || isActcLevelComplete) {
-      highestPqsLevelCompleted = String(level);
+      highestPqsLevelCompleted = level;
     }
   }
 
@@ -90,9 +91,17 @@ export function calculateDerivedWorkingLevels(
       ? levelsToCheck[nextLevelIndex]
       : highestPqsLevelCompleted;
 
-  upgrader.derivedPqsWorkingLevel =
-    highestPqsLevelCompleted !== "0" ? String(nextLevel) : syllabus.baseLevel;
-  upgrader.derivedEventsWorkingLevel = upgrader.derivedPqsWorkingLevel;
+  let finalWorkingLevel =
+    highestPqsLevelCompleted !== "0"
+      ? nextLevel
+      : String(syllabus.baseLevel).trim();
+
+  if (parseInt(finalWorkingLevel) >= 400) {
+    finalWorkingLevel = highestPqsLevelCompleted;
+  }
+
+  upgrader.derivedPqsWorkingLevel = finalWorkingLevel;
+  upgrader.derivedEventsWorkingLevel = finalWorkingLevel;
 }
 
 export function calculateProgressMetrics(
@@ -102,9 +111,14 @@ export function calculateProgressMetrics(
   const completedEventNames = new Set(
     upgrader.rawCompletions.map((c) => c.event.toUpperCase())
   );
-  const workingLevel = upgrader.derivedPqsWorkingLevel || syllabus.baseLevel;
+  const workingLevel =
+    upgrader.derivedPqsWorkingLevel?.trim() ||
+    String(syllabus.baseLevel).trim();
+
   const requirementsForLevel = syllabus.requirements.filter(
-    (r) => r.level === workingLevel && !isRequirementWaived(r, upgrader)
+    (r) =>
+      String(r.level).trim() === workingLevel &&
+      !isRequirementWaived(r, upgrader)
   );
 
   const pqsForLevel = requirementsForLevel.filter(
@@ -123,7 +137,7 @@ export function calculateProgressMetrics(
         ? (completedPqsDifficulty / totalPqsDifficulty) * 100
         : 100;
   } else {
-    upgrader.pqsProgressPercentage = 100; // If no PQS items for the level, they are 100% complete with PQS.
+    upgrader.pqsProgressPercentage = 100;
   }
 
   const eventsForLevel = requirementsForLevel.filter(
@@ -142,7 +156,7 @@ export function calculateProgressMetrics(
         ? (completedEventsDifficulty / totalEventsDifficulty) * 100
         : 100;
   } else {
-    upgrader.eventsProgressPercentage = 100; // If no Event items for the level, they are 100% complete with Events.
+    upgrader.eventsProgressPercentage = 100;
   }
 }
 
@@ -355,7 +369,13 @@ export function getPrioritizedRequirements(
   upgrader: Upgrader,
   syllabus: Syllabus
 ): PrioritizedRequirement[] {
-  const remaining = getRemainingRequirements(upgrader, syllabus);
+  const allRemaining = getRemainingRequirements(upgrader, syllabus);
+
+  const workingLevel = upgrader.derivedPqsWorkingLevel || syllabus.baseLevel;
+  const remainingForLevel = allRemaining.filter(
+    (r) => String(r.level) === workingLevel
+  );
+
   const unlockMap = new Map<string, number>();
   syllabus.requirements.forEach((req) =>
     req.prerequisites?.forEach((prereq) =>
@@ -363,19 +383,21 @@ export function getPrioritizedRequirements(
     )
   );
 
-  const prioritizedList: PrioritizedRequirement[] = remaining.map((req) => {
-    let priorityScore = 0;
-    const isAvailable = arePrerequisitesMet(req, upgrader);
-    if (isAvailable) priorityScore += 1000;
-    priorityScore += (unlockMap.get(req.name) || 0) * 50;
-    if (req.sequence) priorityScore += 100 - req.sequence;
-    return {
-      ...req,
-      priorityScore,
-      isAvailable,
-      unlocks: unlockMap.get(req.name) || 0,
-    };
-  });
+  const prioritizedList: PrioritizedRequirement[] = remainingForLevel.map(
+    (req) => {
+      let priorityScore = 0;
+      const isAvailable = arePrerequisitesMet(req, upgrader);
+      if (isAvailable) priorityScore += 1000;
+      priorityScore += (unlockMap.get(req.name) || 0) * 50;
+      if (req.sequence) priorityScore += 100 - req.sequence;
+      return {
+        ...req,
+        priorityScore,
+        isAvailable,
+        unlocks: unlockMap.get(req.name) || 0,
+      };
+    }
+  );
 
   return prioritizedList.sort((a, b) => b.priorityScore - a.priorityScore);
 }

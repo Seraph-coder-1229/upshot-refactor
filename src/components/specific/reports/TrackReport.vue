@@ -1,125 +1,149 @@
 <template>
-  <div
-    v-if="report"
-    class="bg-white shadow-lg rounded-lg border border-gray-200 overflow-hidden"
-  >
-    <div class="p-6">
-      <h2 class="text-xl font-bold text-gray-800">
-        Track Report for {{ report.position }} {{ report.year }}
+  <div class="space-y-6">
+    <div>
+      <h2 class="text-xl font-semibold">PQS Progress for Level {{ level }}</h2>
+      <TrackLevelChart
+        v-if="pqsUpgradersForThisLevel.length > 0"
+        :upgraders="pqsUpgradersForThisLevel"
+        :level="level"
+        :chart-type="RequirementType.PQS"
+      />
+      <p v-else class="text-gray-500 mt-2">
+        No upgraders are currently working on this PQS level.
+      </p>
+    </div>
+    <div>
+      <h2 class="text-xl font-semibold">
+        Event Progress for Level {{ level }}
       </h2>
+      <TrackLevelChart
+        v-if="eventUpgradersForThisLevel.length > 0"
+        :upgraders="eventUpgradersForThisLevel"
+        :level="level"
+        :chart-type="RequirementType.Event"
+      />
+      <p v-else class="text-gray-500 mt-2">
+        No upgraders are currently working on this Event level.
+      </p>
     </div>
-
-    <div
-      class="border-t border-gray-200 px-6 py-4 grid grid-cols-2 md:grid-cols-5 gap-4 text-center"
-    ></div>
-
-    <div class="p-6 border-t border-gray-200">
-      <h3 class="text-lg font-semibold text-gray-700 mb-4">
-        Track Progress Charts
-      </h3>
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <TrackLevelChart
-          v-if="level300Pqs.length > 0"
-          :upgraders="level300Pqs"
-          :level="'300'"
-          :chart-type="RequirementType.PQS"
-        />
-        <TrackLevelChart
-          v-if="level300Events.length > 0"
-          :upgraders="level300Events"
-          :level="'300'"
-          :chart-type="RequirementType.Event"
-        />
-        <TrackLevelChart
-          v-if="level200Pqs.length > 0"
-          :upgraders="level200Pqs"
-          :level="'200'"
-          :chart-type="RequirementType.PQS"
-        />
-        <TrackLevelChart
-          v-if="level200Events.length > 0"
-          :upgraders="level200Events"
-          :level="'200'"
-          :chart-type="RequirementType.Event"
-        />
+    <div>
+      <h2 class="text-xl font-semibold">Upgrader Watch List (Entire Track)</h2>
+      <div v-if="prioritizedUpgraders.length > 0">
+        <ul>
+          <li
+            v-for="upgrader in prioritizedUpgraders"
+            :key="upgrader.id"
+            class="border-b py-2"
+          >
+            <p>
+              <strong>{{ upgrader.displayName }}</strong> (Working PQS:
+              {{
+                getWorkingLevel(
+                  upgrader.derivedPqsWorkingLevel,
+                  syllabus?.baseLevel
+                )
+              }}, Events:
+              {{
+                getWorkingLevel(
+                  upgrader.derivedEventsWorkingLevel,
+                  syllabus?.baseLevel
+                )
+              }})
+            </p>
+            <p
+              v-if="upgrader.readinessAgainstDeadline === 'Blocked'"
+              class="text-red-500 font-semibold"
+            >
+              Status: Blocked
+            </p>
+            <p
+              v-if="
+                upgrader.pacingAgainstDeadlineDays &&
+                upgrader.pacingAgainstDeadlineDays < 0
+              "
+              class="text-sm text-yellow-600"
+            >
+              Pacing: {{ upgrader.pacingAgainstDeadlineDays }} days against
+              deadline
+            </p>
+          </li>
+        </ul>
+      </div>
+      <div v-else>
+        <p>No upgraders are currently on the watch list for this track.</p>
       </div>
     </div>
-
-    <div class="p-6 border-t border-gray-200">
-      <h3 class="text-lg font-semibold text-gray-700 mb-4">
-        Upgrader Watch List (Sorted by Priority)
-      </h3>
-      <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200"></table>
-      </div>
-    </div>
-  </div>
-  <div v-else class="text-center p-8 bg-white rounded-lg shadow">
-    <p>Generating report...</p>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, defineProps } from "vue";
-import { generateTrackReport } from "@/core/reportGeneratorService";
-import type { TrackReport } from "@/types/reportTypes";
-import { ReadinessStatus } from "@/types/personnelTypes";
-import { RequirementType } from "@/types/syllabiTypes";
-import TrackLevelChart from "../charts/TrackLevelChart.vue"; // <-- IMPORT NEW COMPONENT
+import { computed, type PropType, defineProps } from "vue";
+import type { Upgrader } from "@/types/personnelTypes";
+import { getPrioritizedUpgraders } from "@/core/trainingLogicService";
+import { useSyllabiStore } from "@/stores/syllabiStore";
+import { RequirementType, type Syllabus } from "@/types/syllabiTypes";
+import TrackLevelChart from "../charts/TrackLevelChart.vue";
 
-const props = defineProps<{
-  position: string;
-  year: string;
-}>();
-
-const report = ref<TrackReport | null>(null);
-
-onMounted(() => {
-  report.value = generateTrackReport(props.position, props.year);
+const props = defineProps({
+  upgraders: {
+    type: Array as PropType<Upgrader[]>,
+    required: true,
+  },
+  level: {
+    type: String,
+    required: true,
+  },
+  position: {
+    type: String,
+    required: true,
+  },
+  year: {
+    type: String,
+    required: true,
+  },
 });
 
-// ** NEW: Computed properties to filter students for each chart **
-const level200Pqs = computed(() => {
-  return (
-    report.value?.prioritizedUpgraders.filter(
-      (u) => u.derivedPqsWorkingLevel === "200"
-    ) || []
-  );
-});
-const level200Events = computed(() => {
-  return (
-    report.value?.prioritizedUpgraders.filter(
-      (u) => u.derivedEventsWorkingLevel === "200"
-    ) || []
-  );
-});
-const level300Pqs = computed(() => {
-  return (
-    report.value?.prioritizedUpgraders.filter(
-      (u) => u.derivedPqsWorkingLevel === "300"
-    ) || []
-  );
-});
-const level300Events = computed(() => {
-  return (
-    report.value?.prioritizedUpgraders.filter(
-      (u) => u.derivedEventsWorkingLevel === "300"
-    ) || []
-  );
-});
+const syllabiStore = useSyllabiStore();
 
-const readinessColorClass = (status: ReadinessStatus) => {
-  switch (status) {
-    case ReadinessStatus.OnTrack:
-      return "text-green-700";
-    case ReadinessStatus.AtRisk:
-      return "text-yellow-600";
-    case ReadinessStatus.BehindSchedule:
-      return "text-red-700";
-    case ReadinessStatus.Blocked:
-      return "text-red-800 font-bold";
-    default:
-      return "text-gray-600";
+const syllabus = computed<Syllabus | undefined>(() =>
+  syllabiStore.findSyllabus(props.position, props.year)
+);
+
+const getWorkingLevel = (
+  level: string | undefined | number,
+  baseLevel: string | undefined | number
+): string => {
+  const levelStr = level ? String(level).trim() : "";
+  if (levelStr && levelStr !== "undefined") {
+    return levelStr;
   }
+  return baseLevel ? String(baseLevel).trim() : "";
 };
+
+const pqsUpgradersForThisLevel = computed(() => {
+  if (!syllabus.value) return [];
+  return props.upgraders.filter(
+    (u) =>
+      getWorkingLevel(u.derivedPqsWorkingLevel, syllabus.value?.baseLevel) ===
+      props.level.trim()
+  );
+});
+
+const eventUpgradersForThisLevel = computed(() => {
+  if (!syllabus.value) return [];
+  return props.upgraders.filter(
+    (u) =>
+      getWorkingLevel(
+        u.derivedEventsWorkingLevel,
+        syllabus.value?.baseLevel
+      ) === props.level.trim()
+  );
+});
+
+const prioritizedUpgraders = computed(() => {
+  if (!props.upgraders || props.upgraders.length === 0 || !syllabus.value)
+    return [];
+  const scored = getPrioritizedUpgraders(props.upgraders, syllabus.value);
+  return scored.filter((u) => u.priorityScore > 0);
+});
 </script>

@@ -17,28 +17,28 @@ const defaultTrainingDepartment: TrainingDepartmentPersonnelSetting = {
 
 // Define default deadlines for each position and level
 const pilotDeadlines: PositionLevelDeadlines = {
-  200: { targetMonths: 6, deadlineMonths: 12 },
-  300: { targetMonths: 10, deadlineMonths: 18 },
-  400: { targetMonths: 12, deadlineMonths: 24 }, // Example
+  "200": { targetMonths: 6, deadlineMonths: 12 },
+  "300": { targetMonths: 10, deadlineMonths: 18 },
+  "400": { targetMonths: 12, deadlineMonths: 24 }, // Example
 };
 
 const nfoDeadlines: PositionLevelDeadlines = {
-  200: { targetMonths: 5, deadlineMonths: 10 },
-  300: { targetMonths: 9, deadlineMonths: 16 },
-  400: { targetMonths: 11, deadlineMonths: 22 }, // Example
+  "200": { targetMonths: 5, deadlineMonths: 10 },
+  "300": { targetMonths: 9, deadlineMonths: 16 },
+  "400": { targetMonths: 11, deadlineMonths: 22 }, // Example
 };
 
 const aawDeadlines: PositionLevelDeadlines = {
   // Assuming AAW is a distinct position track
-  200: { targetMonths: 7, deadlineMonths: 14 },
-  300: { targetMonths: 11, deadlineMonths: 20 },
-  // Add 400 if applicable
+  "200": { targetMonths: 7, deadlineMonths: 14 },
+  "300": { targetMonths: 8, deadlineMonths: 18 },
+  // Add "400" if applicable
 };
 
 const ewoDeadlines: PositionLevelDeadlines = {
   // Assuming EWO is a distinct position track
-  200: { targetMonths: 6, deadlineMonths: 13 },
-  300: { targetMonths: 10, deadlineMonths: 19 },
+  "200": { targetMonths: 6, deadlineMonths: 13 },
+  " 300": { targetMonths: 10, deadlineMonths: 19 },
   // Add 400 if applicable
 };
 
