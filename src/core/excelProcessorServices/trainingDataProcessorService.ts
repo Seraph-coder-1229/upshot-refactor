@@ -2,18 +2,11 @@ import * as XLSX from "xlsx";
 import { excelToJsDate_LocalIntent } from "../../utils/dateUtils";
 import { useUiStore } from "../../stores/uiStore";
 import { loggingService } from "../../utils/loggingService";
+import { DetailedCompletionRecord } from "@/types/personnelTypes"; // Import the type from its new home
 
 const SVC_MODULE = "[TrainingDataProcessor]";
 
 // Type definitions for the data this processor will produce
-export interface DetailedCompletionRecord {
-  event: string;
-  date: Date;
-  instructor?: string;
-  grade?: number | string;
-  status?: string;
-}
-
 export interface ProcessedStudentData {
   nameFromSharpFile: string;
   pqsVersionName?: string;
@@ -44,7 +37,6 @@ export async function processSharpTrainingFile(
 
   try {
     const data = await file.arrayBuffer();
-    // We will not use cellDates, instead handling parsing manually with debugging.
     const workbook = XLSX.read(data, { type: "array" });
 
     const sheets: { [name: string]: any[][] } = {};
@@ -53,7 +45,6 @@ export async function processSharpTrainingFile(
     for (const name of sheetNames) {
       const sheet = workbook.Sheets[name];
       if (!sheet) throw new Error(`Required sheet "${name}" not found.`);
-      // Set raw: false to get formatted strings, which helps with string-based dates
       sheets[name] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
     }
 
@@ -90,19 +81,7 @@ export async function processSharpTrainingFile(
         }
       }
     });
-    console.table(
-      [...specialColumns.entries()].map(([colIndex, info]) => ({
-        "Column Index": colIndex,
-        Type: info.type,
-        Level: info.level ?? "N/A",
-      }))
-    );
 
-    loggingService.logInfo(
-      `${SVC_MODULE} Starting to process ${
-        dateSheetRows.length - dataStartIndex
-      } student rows...`
-    );
     for (let i = dataStartIndex; i < dateSheetRows.length; i++) {
       const name = sheets["Date Received"][i][nameColIndex];
       if (!name) continue;
@@ -114,8 +93,6 @@ export async function processSharpTrainingFile(
         actcLevelStatuses: new Map(),
       };
 
-      loggingService.logDebug(`${SVC_MODULE} Processing row for: ${name}`);
-
       for (let j = nameColIndex + 1; j < header.length; j++) {
         const eventName = header[j];
         if (!eventName) continue;
@@ -124,7 +101,7 @@ export async function processSharpTrainingFile(
           if (specialInfo.type === "actc" && specialInfo.level) {
             const status = sheets["Status"][i][j] || "Not Started";
             studentData.actcLevelStatuses.set(specialInfo.level, status);
-            continue; // Skip ACTC level columns
+            continue;
           }
         }
 
@@ -132,29 +109,13 @@ export async function processSharpTrainingFile(
         let parsedDate: Date | null = null;
 
         if (dateValue != null && dateValue !== "") {
-          // --- DEBUGGING LOGIC ---
-          loggingService.logDebug(
-            `${SVC_MODULE}   Event: "${eventName}", Raw Value: "${dateValue}", Type: ${typeof dateValue}`
-          );
-
           if (typeof dateValue === "number") {
             parsedDate = excelToJsDate_LocalIntent(dateValue);
-            loggingService.logDebug(
-              `${SVC_MODULE}     -> Parsed as Excel Number. Result: ${parsedDate?.toISOString()}`
-            );
           } else if (typeof dateValue === "string") {
             const d = new Date(dateValue);
-            if (!isNaN(d.getTime())) {
-              parsedDate = d;
-              loggingService.logDebug(
-                `${SVC_MODULE}     -> Parsed as String. Result: ${parsedDate?.toISOString()}`
-              );
-            }
+            if (!isNaN(d.getTime())) parsedDate = d;
           } else if (dateValue instanceof Date && !isNaN(dateValue.getTime())) {
             parsedDate = dateValue;
-            loggingService.logDebug(
-              `${SVC_MODULE}     -> Value was already a JS Date object.`
-            );
           }
         }
 
@@ -178,7 +139,6 @@ export async function processSharpTrainingFile(
     });
     return { detectedTrack: null, data: new Map() };
   }
-  console.log(`${SVC_MODULE} Processed ${processedData.size} student records.`);
-  console.log(processedData);
+
   return { detectedTrack, data: processedData };
 }

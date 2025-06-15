@@ -191,7 +191,7 @@ A help section/modal within the application will provide:
 ## Phase 7: Reports & Visualizations
 * [ ] **Define Data Structures for Reports:** Finalize structures in src/types/reportTypes.ts for both UI display and LLM-compatible JSON output.
 * [ ] **Implement src/core/reportGeneratorService.ts:**
-    * [ ] Function to generate LLMMultiTrackMonthlyReport data.
+    * [X] Function to generate LLMMultiTrackMonthlyReport data.
     * [ ] Functions for other specific reports (priority, individual summary, training plans), returning structured data.
 * [ ] **Develop Vue Report Components** in src/components/specific/reports/:
     * [ ] Components to consume structured data from reportGeneratorService (via stores) and render it.

@@ -82,3 +82,23 @@ export interface LLMAnonymizedMultiPositionMonthlyReport {
   overallOrganisationalSummaryPoints?: string[];
   positions: LLMAnonymizedPositionLevelReportData[];
 }
+
+/**
+ * Defines the summary statistics for a single track for the monthly report.
+ */
+export interface MonthlyTrackSummary {
+  trackName: string;
+  totalEnrolled: number;
+  numberBehind: number;
+  eventsCompletedThisMonth: number;
+  pqsCompletedThisMonth: number;
+}
+
+/**
+ * Defines the overall structure for the monthly report data.
+ */
+export interface MonthlyReportData {
+  reportDate: Date;
+  startDate: Date; // The date 30 days ago
+  trackSummaries: MonthlyTrackSummary[];
+}

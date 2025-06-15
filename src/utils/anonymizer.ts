@@ -1,69 +1,63 @@
-import { loggingService } from "./loggingService"; // For logging warnings if SubtleCrypto isn't available
+// src/utils/anonymizer.ts
+
+import type { Upgrader } from "@/types/personnelTypes";
+import { deepClone } from "./dataUtils";
 
 /**
- * Asynchronously generates a SHA-256 hash of a given string.
- * Uses the browser's built-in SubtleCrypto API.
- * @param message The string to hash.
- * @returns A Promise that resolves to the hex-encoded SHA-256 hash string,
- * or an error string if SubtleCrypto is unavailable or an error occurs.
+ * Defines the structure for the object returned by the anonymization process.
+ * @property anonymizedPersonnel - A list of upgraders with their names replaced by pseudonyms.
+ * @property keyMap - A map to convert pseudonyms back to real names. The key is the pseudonym, the value is the real name.
  */
-export async function generateSha256Hash(message: string): Promise<string> {
-  if (typeof window !== "undefined" && window.crypto && window.crypto.subtle) {
-    try {
-      const encoder = new TextEncoder();
-      const data = encoder.encode(message);
-      const hashBuffer = await window.crypto.subtle.digest("SHA-256", data);
-      const hashArray = Array.from(new Uint8Array(hashBuffer)); // Convert buffer to byte array
-      const hashHex = hashArray
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join(""); // Convert bytes to hex string
-      return hashHex;
-    } catch (error) {
-      loggingService.logError(
-        "Error generating SHA-256 hash using SubtleCrypto:",
-        error
-      );
-      // Fallback or error representation if hashing fails critically
-      return `error_hashing_${message.substring(0, 10)}`;
-    }
-  } else {
-    // Fallback for environments without SubtleCrypto (e.g., very old browser, or Node.js without 'crypto' module in a web context)
-    // This is a very basic and insecure placeholder if SubtleCrypto is not available.
-    // For a production client-side app, you'd expect SubtleCrypto to be there.
-    const warningMessage =
-      "SubtleCrypto API not available. Cannot generate secure SHA-256 hash client-side. Using insecure placeholder.";
-    loggingService.logWarn(warningMessage);
-    // THIS IS A VERY BASIC AND INSECURE FALLBACK - In a real app, you might throw an error
-    // or use a polyfill if older browser support is critical and hashing is mandatory.
-    let hash = 0;
-    for (let i = 0; i < message.length; i++) {
-      const char = message.charCodeAt(i);
-      hash = (hash << 5) - hash + char;
-      hash |= 0; // Convert to 32bit integer
-    }
-    return `insecure_hash_placeholder_${Math.abs(hash).toString(16)}`;
-  }
+export interface AnonymizationResult {
+  anonymizedPersonnel: Upgrader[];
+  keyMap: Map<string, string>;
 }
 
 /**
- * Creates a consistent, anonymized ID for an upgrader.
- * For now, prepends UG- to the SHA-256 hash of their original ID.
- * @param upgraderOriginalId The original unique identifier for the upgrader (e.g., SHARP Name).
- * @returns A Promise that resolves to the anonymized ID string.
+ * Anonymizes personnel data by replacing display names with generic pseudonyms.
+ * It creates a deep copy of the personnel data to avoid mutating the original state.
+ *
+ * @param personnel - An array of Upgrader objects to be anonymized.
+ * @returns An AnonymizationResult object containing the anonymized data and a keyMap for de-anonymization.
  */
-export async function getAnonymizedUpgraderId(
-  upgraderOriginalId: string
-): Promise<string> {
-  if (
-    !upgraderOriginalId ||
-    typeof upgraderOriginalId !== "string" ||
-    upgraderOriginalId.trim() === ""
-  ) {
-    loggingService.logWarn(
-      "Attempted to anonymize an empty or invalid upgrader ID."
-    );
-    return "ANON_ID_INVALID_INPUT";
-  }
-  const hashedId = await generateSha256Hash(upgraderOriginalId);
-  return `UG-${hashedId.substring(0, 16)}`; // Using a portion of the hash for brevity if desired
+export function anonymizeData(personnel: Upgrader[]): AnonymizationResult {
+  const keyMap = new Map<string, string>();
+
+  const anonymizedPersonnel = personnel.map((person, index) => {
+    const pseudonym = `Student ${index + 1}`;
+
+    // Store the mapping to reverse the process later
+    keyMap.set(pseudonym, person.displayName);
+
+    // Create a deep copy to avoid changing the original object in the store
+    const anonymizedPerson = deepClone(person);
+    anonymizedPerson.displayName = pseudonym;
+
+    return anonymizedPerson;
+  });
+
+  return { anonymizedPersonnel, keyMap };
+}
+
+/**
+ * Replaces pseudonyms in a given text with their original names using a keyMap.
+ *
+ * @param text - The text content (e.g., an AI-generated report) containing pseudonyms.
+ * @param keyMap - A map where keys are pseudonyms and values are the real names.
+ * @returns The text with all pseudonyms replaced by their original names.
+ */
+export function deAnonymizeText(
+  text: string,
+  keyMap: Map<string, string>
+): string {
+  let deAnonymizedText = text;
+
+  // Iterate over the map and replace all occurrences of the pseudonym (key) with the real name (value)
+  keyMap.forEach((realName, pseudonym) => {
+    // Use a regular expression with the 'g' flag to ensure all instances are replaced
+    const regex = new RegExp(pseudonym, "g");
+    deAnonymizedText = deAnonymizedText.replace(regex, realName);
+  });
+
+  return deAnonymizedText;
 }

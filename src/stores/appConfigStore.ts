@@ -18,6 +18,7 @@ function getInitialConfiguration(): AppConfig {
   let effectiveConfig = deepClone(defaultConfig);
 
   const userConfig = window.UPSHOT_USER_APP_CONFIG;
+  console.log("User config from window object:", userConfig);
   if (userConfig && typeof userConfig === "object") {
     loggingService.logInfo(
       "User application configuration found. Merging with defaults."

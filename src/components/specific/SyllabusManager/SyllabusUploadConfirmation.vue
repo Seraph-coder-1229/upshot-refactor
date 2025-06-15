@@ -1,50 +1,96 @@
 <template>
-  <BaseModal :is-open="isOpen" title="Syllabus Uploaded" @close="$emit('deny')">
-    <div v-if="syllabus" class="space-y-4">
-      <p>
-        A new syllabus has been parsed successfully. Please review the details
-        below.
-      </p>
-      <div class="p-4 bg-gray-50 rounded-lg border">
-        <dl class="grid grid-cols-2 gap-x-4 gap-y-2">
-          <dt class="font-medium text-gray-600">Track:</dt>
-          <dd class="text-gray-800">{{ syllabus.position }}</dd>
+  <BaseModal :is-open="isOpen" title="Confirm Syllabus" @close="$emit('deny')">
+    <template #body>
+      <div v-if="syllabus" class="space-y-4">
+        <div
+          class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100"
+        >
+          <CheckIcon class="h-6 w-6 text-green-600" aria-hidden="true" />
+        </div>
+        <div class="mt-3 text-center sm:mt-5">
+          <h3 class="text-lg font-medium leading-6 text-gray-900">
+            Syllabus Parsed
+          </h3>
+          <p class="mt-2 text-sm text-gray-500">
+            Please review the details below before saving.
+          </p>
+        </div>
 
-          <dt class="font-medium text-gray-600">Year:</dt>
-          <dd class="text-gray-800">{{ syllabus.year }}</dd>
+        <div
+          class="mt-6 border-t border-b border-gray-200 divide-y divide-gray-200"
+        >
+          <div class="py-4 flex items-center justify-between">
+            <dt class="text-sm font-medium text-gray-600 flex items-center">
+              <UserGroupIcon class="h-5 w-5 text-gray-400 mr-3" />
+              Track / Position
+            </dt>
+            <dd class="text-sm font-semibold text-gray-900">
+              {{ syllabus.position || "N/A" }}
+            </dd>
+          </div>
 
-          <dt class="font-medium text-gray-600">Total Requirements:</dt>
-          <dd class="text-gray-800">{{ syllabus.requirements.length }}</dd>
+          <div class="py-4 flex items-center justify-between">
+            <dt class="text-sm font-medium text-gray-600 flex items-center">
+              <CalendarDaysIcon class="h-5 w-5 text-gray-400 mr-3" />
+              Year
+            </dt>
+            <dd class="text-sm font-semibold text-gray-900">
+              {{ syllabus.year || "N/A" }}
+            </dd>
+          </div>
 
-          <dt class="font-medium text-gray-600">Levels:</dt>
-          <dd class="text-gray-800">{{ distinctLevels }}</dd>
-        </dl>
+          <div class="py-4 flex items-center justify-between">
+            <dt class="text-sm font-medium text-gray-600 flex items-center">
+              <ClipboardDocumentListIcon class="h-5 w-5 text-gray-400 mr-3" />
+              Total Requirements
+            </dt>
+            <dd class="text-sm font-semibold text-gray-900">
+              {{
+                Array.isArray(syllabus.requirements)
+                  ? syllabus.requirements.length
+                  : 0
+              }}
+            </dd>
+          </div>
+
+          <div class="py-4 flex items-center justify-between">
+            <dt class="text-sm font-medium text-gray-600 flex items-center">
+              <Bars3BottomLeftIcon class="h-5 w-5 text-gray-400 mr-3" />
+              Detected Levels
+            </dt>
+            <dd class="text-sm font-semibold text-gray-900">
+              {{ distinctLevels }}
+            </dd>
+          </div>
+        </div>
       </div>
-      <p>What would you like to do?</p>
-    </div>
-    <div v-else class="text-center">
-      <p>Loading syllabus details...</p>
-    </div>
+      <div v-else class="text-center">
+        <p>Loading syllabus details...</p>
+      </div>
+    </template>
 
     <template #footer>
-      <div class="flex justify-end space-x-3">
+      <div class="flex flex-col sm:flex-row-reverse gap-3">
         <button
-          @click="$emit('deny')"
-          class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+          type="button"
+          @click="$emit('accept')"
+          class="inline-flex w-full justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-indigo-700 sm:w-auto sm:text-sm"
         >
-          Deny
+          Accept & Save
         </button>
         <button
+          type="button"
           @click="$emit('edit')"
-          class="px-4 py-2 text-sm font-medium text-white bg-yellow-500 border border-transparent rounded-md hover:bg-yellow-600"
+          class="inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 sm:mt-0 sm:w-auto sm:text-sm"
         >
           Edit
         </button>
         <button
-          @click="$emit('accept')"
-          class="px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700"
+          type="button"
+          @click="$emit('deny')"
+          class="inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 sm:mt-0 sm:w-auto sm:text-sm"
         >
-          Accept
+          Deny
         </button>
       </div>
     </template>
@@ -56,6 +102,14 @@ import { computed, PropType, defineProps, defineEmits } from "vue";
 import BaseModal from "@/components/ui/BaseModal.vue";
 import type { Syllabus } from "@/types/syllabiTypes";
 import { getUniqueValues } from "@/utils/arrayUtils";
+import { loggingService } from "@/utils/loggingService";
+import {
+  CheckIcon,
+  UserGroupIcon,
+  CalendarDaysIcon,
+  ClipboardDocumentListIcon,
+  Bars3BottomLeftIcon,
+} from "@heroicons/vue/24/outline";
 
 const props = defineProps({
   isOpen: {
@@ -64,17 +118,30 @@ const props = defineProps({
   },
   syllabus: {
     type: Object as PropType<Syllabus | null>,
-    required: true,
+    default: null,
   },
 });
 
 defineEmits(["accept", "edit", "deny"]);
 
 const distinctLevels = computed(() => {
-  if (!props.syllabus) return "";
-  const levels = getUniqueValues(
-    props.syllabus.requirements.map((r) => r.level.toString())
-  );
-  return levels.join(", ");
+  if (
+    !props.syllabus ||
+    !Array.isArray(props.syllabus.requirements) ||
+    props.syllabus.requirements.length === 0
+  ) {
+    return "N/A";
+  }
+  try {
+    const levels = getUniqueValues(
+      props.syllabus.requirements.map((r) => r.level.toString())
+    );
+    return levels
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+      .join(", ");
+  } catch (error) {
+    loggingService.error("Could not compute distinct levels:", error);
+    return "Error";
+  }
 });
 </script>

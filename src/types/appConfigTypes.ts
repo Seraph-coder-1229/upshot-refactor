@@ -28,7 +28,7 @@ export interface AppConfig {
     [positionKey: string]: PositionSetting;
   };
   useRoundedTrainingStartDate: boolean;
-  // ... other config properties ...
+  geminiApiKey?: string;
 
   trainingDepartment: TrainingDepartmentPersonnelSetting;
 }

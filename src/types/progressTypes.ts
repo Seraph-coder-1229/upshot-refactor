@@ -55,3 +55,14 @@ export interface ProgressStoreState {
 
   isLoading: boolean; // For when SHARP files are being processed
 }
+
+/**
+ * Represents a single, unprocessed training completion record,
+ * typically parsed from an external file before being resolved
+ * against a specific syllabus requirement for an upgrader.
+ */
+export interface RawCompletion {
+  requirementId: string; // The name/ID of the event from the source file
+  completionDate: Date; // The date it was completed
+  grade?: string | number | null; // The grade, if available
+}

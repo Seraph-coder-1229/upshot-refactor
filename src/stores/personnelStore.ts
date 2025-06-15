@@ -1,52 +1,43 @@
 import { defineStore } from "pinia";
 import { type Upgrader } from "../types/personnelTypes";
+import { type RawCompletion } from "../types/progressTypes";
 import { useUiStore } from "./uiStore";
+import { type DetailedCompletionRecord } from "../types/personnelTypes";
 import { processPersonnelFile } from "../core/excelProcessorServices/personnelProcessorService";
-
-// Helper function to create a map for quick lookups
-const createPersonnelMap = (personnel: Upgrader[]): Map<string, Upgrader> => {
-  return new Map(personnel.map((p) => [p.id, p]));
-};
+import { useSyllabiStore } from "./syllabiStore";
+import { useAppConfigStore } from "./appConfigStore";
+import {
+  calculateDerivedWorkingLevels,
+  calculatePacing,
+  calculateProgressMetrics,
+  calculateProjections,
+  calculateReadiness,
+} from "@/core/trainingLogicService";
 
 export const usePersonnelStore = defineStore("personnel", {
-  /**
-   * State for personnel management.
-   */
   state: () => ({
-    /**
-     * Holds all personnel records.
-     * @type {Upgrader[]}
-     */
     allPersonnel: [] as Upgrader[],
-    /**
-     * A map for quick personnel lookup by their ID.
-     * @type {Map<string, Upgrader>}
-     */
     personnelMap: new Map<string, Upgrader>(),
-    /**
-     * Tracks if there are unsaved changes.
-     * @type {boolean}
-     */
     isDirty: false,
-    /**
-     * Tracks if the initial personnel data has been loaded.
-     * @type {boolean}
-     */
     isDataLoaded: false,
   }),
 
-  /**
-   * Getters for derived state.
-   */
   getters: {
-    getPersonnelById: (state) => {
-      return (id: string): Upgrader | undefined => {
-        // Trim both the lookup ID and the ID from the personnel object
-        // to handle potential whitespace issues from the source data.
+    getPersonnelById:
+      (state) =>
+      (id: string): Upgrader | undefined => {
         const trimmedId = id ? id.trim() : "";
         return state.allPersonnel.find((p) => p.id.trim() === trimmedId);
-      };
-    },
+      },
+    getUpgraderByName:
+      (state) =>
+      (name: string): Upgrader | undefined => {
+        if (!name) return undefined;
+        const normalizedName = name.trim().toUpperCase();
+        return state.allPersonnel.find(
+          (p) => p.name.trim().toUpperCase() === normalizedName
+        );
+      },
     allPersonnelSortedByName: (state): Upgrader[] => {
       return [...state.allPersonnel].sort((a, b) =>
         a.name.localeCompare(b.name)
@@ -54,31 +45,13 @@ export const usePersonnelStore = defineStore("personnel", {
     },
   },
 
-  /**
-   * Actions for mutating the state.
-   */
   actions: {
-    /**
-     * Processes a personnel Excel file and loads the data into the store.
-     * Handles UI feedback for loading and error states.
-     * @param {File} file - The personnel Excel file uploaded by the user.
-     */
     async loadPersonnelFromFile(file: File) {
       const uiStore = useUiStore();
       uiStore.setGlobalLoading(true);
-      uiStore.addNotification({
-        message: "Processing personnel file...",
-        type: "info",
-        duration: 3000,
-      });
-
       try {
-        // Call the processor to get the personnel data
         const personnelList = await processPersonnelFile(file);
-
-        // Use the existing action to set the store's state
         this.setPersonnel(personnelList);
-
         if (personnelList.length > 0) {
           uiStore.addNotification({
             message: `Successfully loaded ${personnelList.length} personnel records.`,
@@ -86,80 +59,104 @@ export const usePersonnelStore = defineStore("personnel", {
           });
         } else {
           uiStore.addNotification({
-            message:
-              "Processed file, but no personnel records were found. Please check the file content.",
+            message: "Processed file, but no personnel records were found.",
             type: "warning",
           });
         }
       } catch (error) {
         console.error("Failed to process personnel file:", error);
         uiStore.addNotification({
-          message:
-            "An error occurred while processing the personnel file. See console for details.",
+          message: "An error occurred while processing the personnel file.",
           type: "error",
         });
       } finally {
         uiStore.setGlobalLoading(false);
       }
     },
-
-    /**
-     * Sets the main personnel data. This is the final step in the new flow.
-     * @param {Upgrader[]} personnelList - The list of personnel to load.
-     */
     setPersonnel(personnelList: Upgrader[]) {
-      try {
-        this.allPersonnel = personnelList;
-        this.isDataLoaded = personnelList.length > 0;
-      } catch (error) {
-        const uiStore = useUiStore();
-        uiStore.addNotification({
-          message: "Failed to set personnel data in the store.",
-          type: "error",
+      this.allPersonnel = personnelList;
+      this.personnelMap = new Map(personnelList.map((p) => [p.id, p]));
+      this.isDataLoaded = personnelList.length > 0;
+    },
+    updatePersonnel(updatedUpgrader: Upgrader) {
+      const index = this.allPersonnel.findIndex(
+        (p) => p.id === updatedUpgrader.id
+      );
+      if (index !== -1) {
+        this.allPersonnel[index] = updatedUpgrader;
+      }
+    },
+
+    addCompletionsToUpgrader(
+      upgraderId: string,
+      newCompletions: RawCompletion[]
+    ) {
+      const upgrader = this.getPersonnelById(upgraderId);
+      if (!upgrader) {
+        console.error(
+          `Could not find upgrader with ID ${upgraderId} to add completions.`
+        );
+        return;
+      }
+
+      const updatedUpgrader = JSON.parse(JSON.stringify(upgrader));
+
+      // Restore Date objects that were turned into strings by the deep copy
+      updatedUpgrader.startDate = new Date(updatedUpgrader.startDate);
+      if (Array.isArray(updatedUpgrader.rawCompletions)) {
+        updatedUpgrader.rawCompletions.forEach(
+          (comp: DetailedCompletionRecord) => {
+            comp.date = new Date(comp.date);
+          }
+        );
+      }
+      if (Array.isArray(updatedUpgrader.allCompletions)) {
+        updatedUpgrader.allCompletions.forEach((comp: any) => {
+          comp.completionDate = new Date(comp.completionDate);
         });
-        console.error("Error setting personnel:", error);
       }
-    },
 
-    /**
-     * Adds a single new person to the store.
-     * @param {Upgrader} upgrader - The person to add.
-     */
-    addPersonnel(upgrader: Upgrader) {
-      if (this.personnelMap.has(upgrader.id)) {
-        console.warn(
-          `Personnel with ID ${upgrader.id} already exists. Use updatePersonnel instead.`
+      const mappedCompletions: DetailedCompletionRecord[] = newCompletions.map(
+        (c) => ({
+          event: c.requirementId,
+          date: c.completionDate,
+          grade: c.grade ?? undefined,
+        })
+      );
+
+      updatedUpgrader.rawCompletions.push(...mappedCompletions);
+
+      const syllabiStore = useSyllabiStore();
+      const appConfigStore = useAppConfigStore();
+      const syllabus = syllabiStore.findSyllabus(
+        updatedUpgrader.assignedPosition,
+        updatedUpgrader.assignedSyllabusYear
+      );
+
+      if (syllabus) {
+        // These functions mutate the 'updatedUpgrader' object, adding all calculated fields.
+        // Crucially, calculateProgressMetrics will populate the 'allCompletions' array.
+        calculateProgressMetrics(updatedUpgrader, syllabus);
+        calculateDerivedWorkingLevels(
+          updatedUpgrader,
+          syllabus,
+          appConfigStore.currentConfig
         );
-        return;
-      }
-      this.allPersonnel.push(upgrader);
-      this.personnelMap.set(upgrader.id, upgrader);
-      this.isDirty = true;
-    },
-
-    /**
-     * Updates an existing person's data.
-     * @param {Upgrader} upgrader - The person to update.
-     */
-    updatePersonnel(upgrader: Upgrader) {
-      const index = this.allPersonnel.findIndex((p) => p.id === upgrader.id);
-      if (index === -1) {
-        console.warn(
-          `Personnel with ID ${upgrader.id} not found. Cannot update.`
+        calculatePacing(
+          updatedUpgrader,
+          syllabus,
+          appConfigStore.currentConfig
         );
-        return;
-      }
-      this.allPersonnel[index] = upgrader;
-      this.personnelMap.set(upgrader.id, upgrader);
-      this.isDirty = true;
-    },
+        calculateProjections(
+          updatedUpgrader,
+          syllabus,
+          appConfigStore.currentConfig
+        );
+        calculateReadiness(updatedUpgrader, syllabus);
 
-    /**
-     * Clears all personnel data from the store.
-     */
-    clearPersonnel() {
-      this.allPersonnel = [];
-      this.isDataLoaded = false;
+        // Replace the old object in the store with the fully updated one to ensure reactivity.
+        this.updatePersonnel(updatedUpgrader);
+      }
     },
   },
 });

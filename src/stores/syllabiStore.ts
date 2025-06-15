@@ -9,31 +9,33 @@ import { deepClone } from "@/utils/dataUtils";
 import { excelSyllabusProcessorService } from "../core/excelProcessorServices/syllabusProcessorService";
 import { useUiStore } from "./uiStore";
 
-function getInitialSyllabi(): Syllabus[] {
-  let loadedSyllabi = deepClone(DEFAULT_SYLLABI);
+export function getInitialSyllabi(): Syllabus[] {
+  // Check if the correct variable exists and is an array.
   if (
-    Array.isArray(window.UPSHOT_USER_SYLLABI) &&
-    window.UPSHOT_USER_SYLLABI.length > 0
+    typeof window.UPSHOT_USER_SYLLABI !== "undefined" &&
+    Array.isArray(window.UPSHOT_USER_SYLLABI)
   ) {
+    // Log the success message you were seeing in the console.
+    loggingService.logInfo(
+      "User syllabi loaded successfully from window.UPSHOT_USER_SYLLABI."
+    );
     try {
-      if (
-        window.UPSHOT_USER_SYLLABI[0] &&
-        typeof window.UPSHOT_USER_SYLLABI[0].id === "string" &&
-        Array.isArray(window.UPSHOT_USER_SYLLABI[0].requirements)
-      ) {
-        loadedSyllabi = deepClone(window.UPSHOT_USER_SYLLABI);
-        loggingService.logInfo(
-          `User syllabi loaded successfully from window.UPSHOT_USER_SYLLABI.`
-        );
-      }
-    } catch (error) {
+      // Perform a deep copy to prevent bugs with Vue's reactivity system.
+      return JSON.parse(JSON.stringify(window.UPSHOT_USER_SYLLABI));
+    } catch (e) {
       loggingService.logError(
-        "Failed to load user syllabi from window object.",
-        error
+        "Error parsing user syllabi data from window.UPSHOT_USER_SYLLABI.",
+        e
       );
+      return []; // Return empty array on parsing error
     }
   }
-  return loadedSyllabi;
+
+  // This will run if the `UPSHOT_USER_SYLLABI` variable isn't found.
+  loggingService.logWarn(
+    "window.UPSHOT_USER_SYLLABI not found. No user syllabi loaded."
+  );
+  return [];
 }
 
 export const useSyllabiStore = defineStore("syllabi", {
@@ -42,6 +44,7 @@ export const useSyllabiStore = defineStore("syllabi", {
     isLoading: false,
     isDirty: false,
     lastLoadedSyllabiSnapshot: JSON.stringify(getInitialSyllabi()),
+    pendingSyllabusForConfirmation: null as Syllabus | null, // ADD THIS LINE
   }),
   getters: {
     getSyllabusById:
@@ -111,6 +114,15 @@ export const useSyllabiStore = defineStore("syllabi", {
       },
   },
   actions: {
+    setPendingSyllabus(syllabus: Syllabus | null) {
+      this.pendingSyllabusForConfirmation = syllabus;
+    },
+    acceptPendingSyllabus() {
+      if (this.pendingSyllabusForConfirmation) {
+        this.addSyllabus(this.pendingSyllabusForConfirmation);
+        this.pendingSyllabusForConfirmation = null;
+      }
+    },
     markAsDirty() {
       this.isDirty = true;
     },

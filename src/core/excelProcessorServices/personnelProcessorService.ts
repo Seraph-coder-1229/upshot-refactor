@@ -107,3 +107,28 @@ export function downloadPersonnelData(personnel: Upgrader[]): void {
     `Personnel_Data_${new Date().toISOString().slice(0, 10)}.xlsx`
   );
 }
+
+/**
+ * Creates and triggers a download for a blank personnel template file.
+ */
+export function downloadPersonnelTemplate(): void {
+  // Create a worksheet with no data, but with the specified headers
+  const worksheet = XLSX.utils.json_to_sheet([], {
+    header: PERSONNEL_FILE_HEADERS,
+  });
+
+  // Create a new workbook and append the sheet
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Personnel Roster");
+
+  // Generate the Excel file buffer
+  const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+
+  // Create a Blob from the buffer for downloading
+  const dataBlob = new Blob([excelBuffer], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8",
+  });
+
+  // Use file-saver to trigger the download
+  saveAs(dataBlob, "Personnel_Template.xlsx");
+}

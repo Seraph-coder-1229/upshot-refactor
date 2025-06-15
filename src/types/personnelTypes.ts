@@ -3,7 +3,15 @@ import {
   type CompletedItemRecord,
   type PrioritizedRequirement,
 } from "./syllabiTypes";
-import { type DetailedCompletionRecord } from "../core/excelProcessorServices/trainingDataProcessorService";
+
+// This interface is now correctly located here.
+export interface DetailedCompletionRecord {
+  event: string;
+  date: Date;
+  instructor?: string;
+  grade?: number | string;
+  status?: string;
+}
 
 export enum ReadinessStatus {
   ReadyForNextLevel = "Ready for Next Level",
@@ -16,8 +24,8 @@ export enum ReadinessStatus {
 
 export interface Upgrader extends Identifiable, Named {
   // CORE IDENTITY
-  id: string; // Composite ID: SHARP Name + '-' + Position
-  name: string; // SHARP Name
+  id: string;
+  name: string;
   displayName: string;
   rank?: string;
   startDate: Date;
@@ -27,7 +35,7 @@ export interface Upgrader extends Identifiable, Named {
   assignedSyllabusYear: string;
   targetQualificationLevel: number;
   onWaiver?: boolean;
-  manuallyUnlockedLevels?: number[]; // For L400+ progression
+  manuallyUnlockedLevels?: number[];
 
   // SHARP-DERIVED DATA
   currentSharpPqsVersion?: string | null;

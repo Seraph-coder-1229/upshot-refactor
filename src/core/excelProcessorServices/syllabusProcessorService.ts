@@ -74,6 +74,7 @@ function parseMasterSyllabusIdentifier(identifier: string | null | undefined): {
 export async function excelSyllabusProcessorService(
   file: File
 ): Promise<Syllabus[]> {
+  console.log(`${SVC_MODULE} Processing file: ${file.name}`);
   try {
     const data = await file.arrayBuffer();
     const workbook = XLSX.read(data, { type: "array" });
@@ -148,9 +149,8 @@ export async function excelSyllabusProcessorService(
         const level = levelMatch ? levelMatch[0] : "0";
         const requiredValue = requiredKey ? row[requiredKey] || "" : "";
         let isDefaultWaived = requiredValue.toUpperCase() !== "X";
-        console.log(subtypeKey, longName);
+
         if (row[subtypeKey!].includes("ICW")) {
-          console.log("Identified an ICW", subtypeKey, longName);
           isDefaultWaived = true;
         }
         const newRequirement: Requirement = {
@@ -201,7 +201,6 @@ export async function excelSyllabusProcessorService(
     loggingService.logInfo(
       `${SVC_MODULE} Added sequence data from 'Default' sheet.`
     );
-
     return [masterSyllabus];
   } catch (error) {
     loggingService.logError(

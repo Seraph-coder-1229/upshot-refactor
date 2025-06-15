@@ -4,17 +4,23 @@ import { createRouter, createWebHistory } from "vue-router";
 import DashboardView from "../views/DashboardView.vue";
 
 // Report Views
-import ReportsView from "../views/ReportsView.vue"; // This is the new dashboard
+import ReportsView from "../views/ReportsView.vue";
 import IndividualReportListView from "../views/IndividualReportListView.vue";
-import TrackReportView from "../views/TrackReportView.vue"; // The old reports view, now for tracks
+import TrackReportView from "../views/TrackReportView.vue";
 import MonthlyReportView from "../views/MonthlyReportView.vue";
 import LlmReportView from "../views/LlmReportView.vue";
 import StudentDetailView from "../views/StudentDetailView.vue";
 
+// Settings & Syllabus Views
+import SettingsSyllabiView from "../views/SettingsSyllabiView.vue"; // Renamed from SettingsSyllabiView
+import SyllabusManagementView from "../views/SyllabusManagementView.vue";
+import SyllabusUploadView from "../views/SyllabusUploadView.vue";
+import SyllabusUploadConfirmation from "../components/specific/SyllabusManager/SyllabusUploadConfirmation.vue";
+import SyllabusEditView from "../views/SyllabusEditView.vue";
+import AppSettingsView from "../views/AppSettingsView.vue";
 // Other Main Views
 import PersonnelUploadView from "../views/PersonnelUploadView.vue";
 import TrainingUploadView from "../views/TrainingUploadView.vue";
-import SettingsSyllabiView from "../views/SettingsSyllabiView.vue";
 import HelpView from "../views/HelpView.vue";
 import LogsView from "../views/LogsView.vue";
 
@@ -31,7 +37,7 @@ const routes = [
     component: TrainingUploadView,
   },
 
-  // New Nested Report Routes
+  // Report Routes
   { path: "/reports", name: "Reports", component: ReportsView },
   {
     path: "/reports/individual",
@@ -45,7 +51,6 @@ const routes = [
     component: MonthlyReportView,
   },
   { path: "/reports/llm", name: "LlmReport", component: LlmReportView },
-
   {
     path: "/student/:id",
     name: "StudentDetail",
@@ -53,7 +58,30 @@ const routes = [
     props: true,
   },
 
+  // Settings & Syllabus Routes
   { path: "/settings", name: "Settings", component: SettingsSyllabiView },
+  {
+    path: "/syllabi",
+    name: "SyllabusManagement",
+    component: SyllabusManagementView,
+  },
+  {
+    path: "/settings/app",
+    name: "App Config",
+    component: AppSettingsView,
+  },
+  {
+    path: "/syllabi/confirm",
+    name: "SyllabusConfirm",
+    component: SyllabusUploadConfirmation,
+  },
+  {
+    path: "/syllabi/edit/:id",
+    name: "SyllabusEdit",
+    component: SyllabusEditView,
+    props: true,
+  },
+
   { path: "/help", name: "Help", component: HelpView },
   { path: "/logs", name: "Logs", component: LogsView },
   {
