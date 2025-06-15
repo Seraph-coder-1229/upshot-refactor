@@ -6,13 +6,7 @@ module.exports = {
     "./src/**/*.{vue,js,ts,jsx,tsx}", // Make sure this covers your files
   ],
   theme: {
-    extend: {
-      // Add your theme customizations here
-      // For example:
-      // colors: {
-      //   'brand-blue': '#007bff',
-      // },
-    },
+    extend: {},
   },
   plugins: [
     // Add any plugins you might use, e.g.,

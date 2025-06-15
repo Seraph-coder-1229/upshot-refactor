@@ -69,10 +69,29 @@ export const useAppConfigStore = defineStore("appConfig", {
 
   actions: {
     /**
+     * MODIFICATION: This action now iterates through the nested color objects.
+     */
+    applyColorScheme() {
+      const root = document.documentElement;
+      if (this.config.colorScheme) {
+        for (const [name, themeValue] of Object.entries(
+          this.config.colorScheme
+        )) {
+          // Example: name = "primary", themeValue = { DEFAULT: "#...", hover: "#...", foreground: "#..." }
+          for (const [variant, color] of Object.entries(themeValue)) {
+            // Example: variant = "DEFAULT", color = "#..."
+            // Sets CSS variable like --color-primary-DEFAULT = #...
+            root.style.setProperty(`--color-${name}-${variant}`, color);
+          }
+        }
+      }
+    },
+    /**
      * Updates a specific part of the configuration and marks it as dirty.
      */
     updateConfig(partialConfig: Partial<AppConfig>) {
       this.config = { ...this.config, ...partialConfig };
+      this.applyColorScheme();
       this.isDirty = true;
       loggingService.logInfo("Application configuration updated by user.");
     },

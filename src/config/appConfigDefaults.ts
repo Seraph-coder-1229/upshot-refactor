@@ -3,7 +3,42 @@ import {
   type TrainingDepartmentPersonnelSetting,
   type PositionLevelDeadlines,
   PositionSetting,
+  type ColorScheme,
 } from "../types/appConfigTypes";
+
+const defaultColorScheme: ColorScheme = {
+  primary: {
+    DEFAULT: "#4f46e5",
+    hover: "#4338ca",
+    foreground: "#ffffff",
+  },
+  secondary: {
+    DEFAULT: "#e5e7eb",
+    hover: "#d1d5db",
+    foreground: "#111827",
+  },
+  accent: {
+    DEFAULT: "#ec4899",
+    hover: "#db2777",
+    foreground: "#ffffff",
+  },
+  info: {
+    DEFAULT: "#3b82f6",
+    foreground: "#ffffff",
+  },
+  warning: {
+    DEFAULT: "#f59e0b",
+    foreground: "#111827",
+  },
+  action: {
+    DEFAULT: "#22c55e",
+    foreground: "#ffffff",
+  },
+  caution: {
+    DEFAULT: "#ef4444",
+    foreground: "#ffffff",
+  },
+};
 
 // Default Training Department Personnel
 const defaultTrainingDepartment: TrainingDepartmentPersonnelSetting = {
@@ -70,4 +105,5 @@ export const defaultConfig: AppConfig = {
   },
   useRoundedTrainingStartDate: true,
   trainingDepartment: defaultTrainingDepartment,
+  colorScheme: defaultColorScheme,
 };

@@ -5,7 +5,8 @@ import router from "./router";
 import App from "./App.vue";
 
 // Import global styles (Tailwind CSS)
-import "./assets/css/tailwind.css"; // Ensure this path is correct
+import "./assets/css/tailwind.css";
+import "./assets/styles/main.css";
 
 // Import Logging Service and UI Store (and other stores if needed at init)
 import { loggingService } from "./utils/loggingService";

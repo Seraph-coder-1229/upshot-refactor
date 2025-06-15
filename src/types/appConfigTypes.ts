@@ -1,5 +1,25 @@
 // src/types/appConfigTypes.ts
+export interface ColorThemeValue {
+  DEFAULT: string;
+  hover: string;
+  foreground: string;
+}
 
+// A simplified version for colors that don't need a hover state
+export interface StatusColorThemeValue {
+  DEFAULT: string;
+  foreground: string;
+}
+
+export interface ColorScheme {
+  primary: ColorThemeValue;
+  secondary: ColorThemeValue;
+  accent: ColorThemeValue;
+  info: StatusColorThemeValue;
+  warning: StatusColorThemeValue;
+  action: StatusColorThemeValue;
+  caution: StatusColorThemeValue;
+}
 export interface CurveDeadlineSetting {
   targetMonths: number;
   deadlineMonths: number;
@@ -31,6 +51,7 @@ export interface AppConfig {
   geminiApiKey?: string;
 
   trainingDepartment: TrainingDepartmentPersonnelSetting;
+  colorScheme: ColorScheme;
 }
 
 // ==> This is the crucial part for making it known globally <==
