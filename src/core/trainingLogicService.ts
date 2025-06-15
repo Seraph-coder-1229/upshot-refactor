@@ -125,6 +125,7 @@ export function calculateProgressMetrics(
     (r) => r.type === RequirementType.PQS
   );
   if (pqsForLevel.length > 0) {
+    // FIX: Calculate based on difficulty score, defaulting to 1 if not present
     const completedPqsDifficulty = pqsForLevel
       .filter((r) => completedEventNames.has(r.name.toUpperCase()))
       .reduce((sum, r) => sum + (r.difficulty || 1), 0);
@@ -144,6 +145,7 @@ export function calculateProgressMetrics(
     (r) => r.type === RequirementType.Event
   );
   if (eventsForLevel.length > 0) {
+    // FIX: Apply the same difficulty logic to events
     const completedEventsDifficulty = eventsForLevel
       .filter((r) => completedEventNames.has(r.name.toUpperCase()))
       .reduce((sum, r) => sum + (r.difficulty || 1), 0);

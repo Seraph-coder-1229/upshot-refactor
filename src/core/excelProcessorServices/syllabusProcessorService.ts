@@ -118,14 +118,51 @@ export async function excelSyllabusProcessorService(
       `${SVC_MODULE} Initialized master syllabus: ${masterSyllabus.name}`
     );
 
-    // --- Step 2: Parse all requirements from "Syllabus Events" sheet ---
-    const eventsSheetData: any[] = XLSX.utils.sheet_to_json(eventsSheet, {
-      range: 1,
+    // --- Step 2: Parse "Syllabus Events" sheet with headers on Row 2 ---
+    const rawEventsData: any[][] = XLSX.utils.sheet_to_json(eventsSheet, {
+      header: 1, // Get raw data as an array of arrays
+      blankrows: false,
     });
+
+    // As specified, headers are on Row 2, which corresponds to index 1.
+    const headerRowIndex = 1;
+
+    // Check if the file has enough rows to contain the specified header and data.
+    if (rawEventsData.length < headerRowIndex + 2) {
+      throw new Error(
+        `'Syllabus Events' sheet is invalid. Headers are expected on Row 2, but the sheet has fewer than 3 rows of data.`
+      );
+    }
+
+    // Directly get the headers from the 2nd row (index 1).
+    const headers = rawEventsData[headerRowIndex].map((h) =>
+      h ? String(h).trim() : ""
+    );
+
+    // All data begins on the row immediately after the headers.
+    const dataRows = rawEventsData.slice(headerRowIndex + 1);
+
+    // Manually construct the array of objects. This ensures all columns are read.
+    const eventsSheetData = dataRows
+      .map((row) => {
+        // Skip rows that are completely empty
+        if (!row || row.length === 0 || row.every((cell) => !cell)) {
+          return null;
+        }
+        const rowObject: { [key: string]: any } = {};
+        headers.forEach((header, index) => {
+          if (header) {
+            // Only process columns that have a header.
+            rowObject[header] = row[index];
+          }
+        });
+        return rowObject;
+      })
+      .filter((row): row is { [key: string]: any } => row !== null);
     const requirementsMap = new Map<string, Requirement>();
 
     if (eventsSheetData.length > 0) {
-      const firstReqRow = eventsSheetData[0];
+      const firstReqRow = eventsSheetData[5];
       // Find all the header keys we need, case-insensitively
       const longNameKey = findHeaderKey(firstReqRow, "Long name");
       const shortNameKey = findHeaderKey(firstReqRow, "Short Name");
@@ -139,7 +176,9 @@ export async function excelSyllabusProcessorService(
           "Could not find 'Long name' or 'Short Name' column in 'Syllabus Events' sheet."
         );
       }
-
+      console.log(
+        `${SVC_MODULE} Processing row: ${JSON.stringify(eventsSheetData[0])}`
+      );
       for (const row of eventsSheetData) {
         const shortName = row[shortNameKey];
         if (!shortName) continue; // Use Short Name as the key existence check
@@ -154,16 +193,34 @@ export async function excelSyllabusProcessorService(
           isDefaultWaived = true;
         }
         const newRequirement: Requirement = {
-          id: shortName, // Use the Short Name as the stable ID
-          name: shortName, // Use the Short Name for matching against training data headers
+          id: shortName,
+          name: shortName,
           displayName: shortName,
-          description: longName, // Store the full name in the description field
+          description: longName,
           level: level,
           type: mapSubtypeToRequirementType(row[subtypeKey!]),
           rawSharpEventSubtype: row[subtypeKey!],
-          prerequisites: (row[prereqsKey!] || "").split("\n").filter(Boolean),
+          prerequisites: ((row[prereqsKey!] || "") as string)
+            .split("\n")
+            .filter(Boolean)
+            .map((prereqString: string) => {
+              const parts = prereqString.split("/");
+              if (parts.length < 3) return null;
+              let eventName = parts[parts.length - 1].trim();
+              eventName = eventName.replace(/\s*\((Event|PQS).*/i, "").trim();
+              return eventName;
+            })
+            .filter((p): p is string => !!p),
           isDefaultWaived: isDefaultWaived,
+          // sequence will be added later from the "Default" sheet
         };
+        console.log(
+          `${SVC_MODULE} Parsed requirement: ${newRequirement.id} - ${
+            newRequirement.description
+          }: Level ${newRequirement.level}, Type ${
+            newRequirement.type
+          }, Prereqs: [${newRequirement.prerequisites?.join()}]`
+        );
         masterSyllabus.requirements.push(newRequirement);
         // Use the short name as the key for the map as well
         requirementsMap.set(shortName, newRequirement);

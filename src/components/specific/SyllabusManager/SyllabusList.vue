@@ -57,7 +57,7 @@ const handleDelete = (id: string) => {
   ) {
     const syllabusExists = syllabiStore.allSyllabi.some((s) => s.id === id);
     if (syllabusExists) {
-      syllabiStore.deleteSyllabus(id);
+      syllabiStore.removeSyllabus(id);
     } else {
       console.warn(
         `Attempted to delete a syllabus that does not exist with id: ${id}`
