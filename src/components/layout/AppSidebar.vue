@@ -1,12 +1,6 @@
 <template>
   <div class="flex grow flex-col gap-y-5 overflow-y-auto bg-white px-6">
-    <div class="flex h-16 shrink-0 items-center">
-      <img
-        class="h-8 w-auto"
-        src="https://tailwindui.com/img/logos/mark.svg?color=indigo&shade=600"
-        alt="Your Company"
-      />
-    </div>
+    <div class="flex h-16 shrink-0 items-center"></div>
     <nav class="flex flex-1 flex-col">
       <ul role="list" class="flex flex-1 flex-col gap-y-7">
         <li>
@@ -15,15 +9,15 @@
               <router-link
                 :to="item.href"
                 class="group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold"
-                active-class="bg-gray-50 text-indigo-600"
+                active-class="bg-mint-500 text-primary-default"
                 :class="[
-                  'text-gray-700 hover:bg-gray-50 hover:text-indigo-600',
+                  'text-secondary-foreground hover:bg-secondary-default hover:text-mint-500',
                 ]"
               >
                 <component
                   :is="item.icon"
-                  class="size-6 shrink-0 text-gray-400 group-hover:text-indigo-600"
-                  :class="{ 'text-indigo-600': $route.path === item.href }"
+                  class="size-6 shrink-0 text-secondary-foreground/50 group-hover:text-mint-500"
+                  :class="{ 'text-mint-500': $route.path === item.href }"
                   aria-hidden="true"
                 />
                 {{ item.name }}

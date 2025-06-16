@@ -52,12 +52,85 @@
           <AccordionItem
             question="How do I save changes to a Syllabus or App Configuration?"
           >
-            After making edits in the Settings pages, you must click the **"Save
-            and Download"** or **"Download Syllabi"** button. This saves your
-            changes to a `.js` file. To make your changes permanent, you must
-            replace the old `user_syllabi.js` or `user_app_config.js` file in
-            the application's `/public` directory with the new one you just
-            downloaded.
+            <p class="text-gray-700">
+              This application runs entirely in your browser and does not have a
+              backend server to store data. All changes are saved by downloading
+              a file that you must then place in the application's directory.
+            </p>
+            <br />
+            <p class="text-gray-700">
+              When you modify settings in the
+              <strong>Application Settings</strong> or
+              <strong>Syllabus Manager</strong> pages and click a "Save" or
+              "Download" button, your browser will download a file.
+            </p>
+            <ul class="list-disc list-inside mt-2 space-y-1 text-gray-600">
+              <li>
+                For app settings, this will be <code>user_config.js</code>.
+              </li>
+              <li>
+                For a syllabus, this will be a JSON file like
+                <code>PILOT.json</code>.
+              </li>
+            </ul>
+            <br />
+            <p class="text-gray-700">
+              For the application to load your changes automatically next time,
+              you must move the downloaded <code>user_config.js</code> file into
+              the <code>/config</code> folder located next to the main
+              <code>index.html</code> file. For syllabi, you can upload the
+              downloaded JSON file directly in the Syllabus Manager.
+            </p>
+          </AccordionItem>
+
+          <AccordionItem
+            question="How do I set up AI-powered features (Gemini API)?"
+          >
+            <p class="text-gray-700">
+              To enable AI-powered reporting, you need to provide your own
+              Google Gemini API key.
+            </p>
+            <br />
+            <h4 class="font-semibold text-gray-800">
+              Step 1: Create Your API Key
+            </h4>
+            <ol class="list-decimal list-inside mt-2 space-y-2 text-gray-600">
+              <li>
+                Navigate to the
+                <a
+                  href="https://aistudio.google.com/app/apikey"
+                  target="_blank"
+                  class="text-indigo-600 hover:underline"
+                  >Google AI Studio</a
+                >.
+              </li>
+              <li>Sign in and click "Create API key" to generate your key.</li>
+              <li>Copy the generated key to your clipboard.</li>
+            </ol>
+            <br />
+            <h4 class="font-semibold text-gray-800">
+              Step 2: Save the Key in UPSHOT
+            </h4>
+            <ol class="list-decimal list-inside mt-2 space-y-2 text-gray-600">
+              <li>
+                Go to the
+                <router-link
+                  to="/settings/app"
+                  class="text-indigo-600 hover:underline"
+                  >Application Settings</router-link
+                >
+                page.
+              </li>
+              <li>Paste your key into the "Gemini API Key" field.</li>
+              <li>
+                Click the "Save and Download" button. This downloads the
+                <code>user_config.js</code> file with your key included.
+              </li>
+              <li>
+                Place this file into the <code>/config</code> folder as
+                described in the section above.
+              </li>
+            </ol>
           </AccordionItem>
 
           <AccordionItem

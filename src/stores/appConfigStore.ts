@@ -7,6 +7,8 @@ import { defineStore } from "pinia";
 import {
   type AppConfig,
   type CurveDeadlineSetting,
+  type PositionSetting,
+  type TrainingDepartmentPersonnelSetting,
 } from "../types/appConfigTypes";
 import { defaultConfig } from "../config/appConfigDefaults";
 import { loggingService } from "../utils/loggingService";
@@ -96,6 +98,53 @@ export const useAppConfigStore = defineStore("appConfig", {
       loggingService.logInfo("Application configuration updated by user.");
     },
 
+    /**
+     * Updates the training department settings.
+     * @param {keyof TrainingDepartmentPersonnelSetting} key - The property to update.
+     * @param {string | null} value - The new value.
+     */
+    updateTrainingDepartmentProperty(
+      key: keyof TrainingDepartmentPersonnelSetting,
+      value: string | null
+    ) {
+      if (this.config.trainingDepartment) {
+        (this.config.trainingDepartment[key] as string | null) = value;
+        this.isDirty = true;
+      }
+    },
+    /**
+     * Updates the flag for rounding start dates.
+     * @param {boolean} value - The new value.
+     */
+    updateUseRoundedTrainingStartDate(value: boolean) {
+      this.config.useRoundedTrainingStartDate = value;
+      this.isDirty = true;
+    },
+    /**
+     * NEW ACTION:
+     * Updates the curve deadline settings for a specific position and level.
+     * @param {string} positionKey - The position identifier (e.g., 'PILOT').
+     * @param {number} level - The level identifier (e.g., 200).
+     * @param {Partial<CurveDeadlineSetting>} settings - The settings to update.
+     */
+    updateCurveDeadlineSetting(
+      positionKey: string,
+      level: number,
+      settings: Partial<CurveDeadlineSetting>
+    ) {
+      if (
+        this.config.positionSettings[positionKey] &&
+        this.config.positionSettings[positionKey].deadlines[level]
+      ) {
+        const currentSettings =
+          this.config.positionSettings[positionKey].deadlines[level];
+        this.config.positionSettings[positionKey].deadlines[level] = {
+          ...currentSettings,
+          ...settings,
+        };
+        this.isDirty = true;
+      }
+    },
     /**
      * Resets the entire configuration back to the application's defaults.
      */

@@ -1,32 +1,8 @@
 /* This imports Tailwind's base, components, and utilities */
 @import "tailwindcss";
 
-/* This is the new v4 way to define and register your theme */
-@theme {
-        --color-primary-DEFAULT: #4f46e5;   /* Indigo */
-        --color-primary-hover: #4338ca;    /* Darker Indigo */
-        --color-primary-foreground: #ffffff;
-    
-        --color-secondary-DEFAULT: #e5e7eb; /* Gray 200 */
-        --color-secondary-hover: #d1d5db;   /* Gray 300 */
-        --color-secondary-foreground: #111827; /* Gray 900 */
-    
-        --color-accent-DEFAULT: #ec4899;    /* Pink 500 */
-        --color-accent-hover: #db2777;     /* Pink 600 */
-        --color-accent-foreground: #ffffff;
-    
-        --color-warning-DEFAULT: #f59e0b;   /* Amber 500 */
-        --color-warning-foreground: #111827;
-    
-        --color-caution-DEFAULT: #ef4444;   /* Red 500 */
-        --color-caution-foreground: #ffffff;
-    
-        --color-info-DEFAULT: #3b82f6;      /* Blue 500 */
-        --color-info-foreground: #ffffff;
-    
-        --color-action-DEFAULT: #22c55e;    /* Green 500 */
-        --color-action-foreground: #ffffff;
-    
-      
 
-}
+    @theme {
+        --color-mint-500: oklch(0.72 0.11 178)
+      }
+

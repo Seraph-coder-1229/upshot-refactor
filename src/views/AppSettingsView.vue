@@ -1,7 +1,7 @@
 <!-- eslint-disable vue/valid-v-model -->
 <template>
   <div class="p-4 sm:p-6 lg:p-8">
-    <div class="sm:flex sm:items-center">
+    <div class="sm:flex sm:items-center sm:justify-between">
       <div class="sm:flex-auto">
         <h1 class="text-2xl font-bold text-primary">Application Settings</h1>
         <p class="mt-2 text-sm text-secondary">
@@ -69,7 +69,95 @@
           </fieldset>
         </div>
       </div>
-
+      <div
+        class="grid grid-cols-1 gap-x-8 gap-y-8 md:grid-cols-3 bg-white p-6 rounded-lg shadow-sm"
+      >
+        <div>
+          <h2 class="text-base font-semibold leading-7 text-secondary">
+            Track Deadlines
+          </h2>
+          <p class="mt-1 text-sm leading-6 text-secondary/80">
+            Define target and deadline months for each qualification level by
+            position.
+          </p>
+        </div>
+        <div class="md:col-span-2 space-y-8">
+          <div
+            v-for="(
+              positionSetting, positionKey
+            ) in editableConfig.positionSettings"
+            :key="positionKey"
+            class="space-y-4"
+          >
+            <h3 class="font-medium text-secondary uppercase">
+              {{ positionKey }}
+            </h3>
+            <div class="space-y-4 pl-4 border-l-2 border-secondary/20">
+              <div
+                v-for="(deadline, level) in positionSetting.deadlines"
+                :key="level"
+                class="grid grid-cols-1 sm:grid-cols-3 items-center gap-4"
+              >
+                <label
+                  class="text-sm font-medium text-secondary/90"
+                  :for="`target-${positionKey}-${level}`"
+                  >Level {{ level }}</label
+                >
+                <div class="sm:col-span-1">
+                  <label
+                    :for="`target-${positionKey}-${level}`"
+                    class="block text-xs font-medium text-secondary/70"
+                    >Target Months</label
+                  >
+                  <input
+                    type="number"
+                    min="0"
+                    :id="`target-${positionKey}-${level}`"
+                    :value="deadline.targetMonths"
+                    @input="
+                      appConfigStore.updateCurveDeadlineSetting(
+                        positionKey as string,
+                        parseInt(level),
+                        {
+                          targetMonths: parseInt(
+                            ($event.target as HTMLInputElement).value
+                          ),
+                        }
+                      )
+                    "
+                    class="mt-1 block w-full rounded-md border-secondary/30 shadow-sm sm:text-sm px-3 py-1.5"
+                  />
+                </div>
+                <div class="sm:col-span-1">
+                  <label
+                    :for="`deadline-${positionKey}-${level}`"
+                    class="block text-xs font-medium text-secondary/70"
+                    >Deadline Months</label
+                  >
+                  <input
+                    type="number"
+                    min="0"
+                    :id="`deadline-${positionKey}-${level}`"
+                    :value="deadline.deadlineMonths"
+                    @input="
+                      appConfigStore.updateCurveDeadlineSetting(
+                        positionKey as string,
+                        parseInt(level),
+                        {
+                          deadlineMonths: parseInt(
+                            ($event.target as HTMLInputElement).value
+                          ),
+                        }
+                      )
+                    "
+                    class="mt-1 block w-full rounded-md border-secondary/30 shadow-sm sm:text-sm px-3 py-1.5"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
       <div
         class="grid grid-cols-1 gap-x-8 gap-y-8 md:grid-cols-3 bg-white p-6 rounded-lg shadow-sm"
       >

@@ -71,5 +71,5 @@ window.UPSHOT_USER_APP_CONFIG = {
       "aawLead": "AAW Lead Name",
       "ewoLead": "EWO Lead Name"
     },
-    "geminiApiKey": "AIzaSyB7XF13zpuEKcV-ofiTcb0dajtbbEKCY7E"
+    "geminiApiKey": ""
   };

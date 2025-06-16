@@ -10,13 +10,13 @@ export const fileHandlerService = {
    * @param syllabi - The array of Syllabus objects to download.
    */
   downloadSyllabi(syllabi: Syllabus[]): void {
-    const dataStr = `window.USER_SYLLABI = ${JSON.stringify(
+    const dataStr = `window.UPSHOT_USER_SYLLABI = ${JSON.stringify(
       syllabi,
       null,
       2
     )};`;
     const blob = new Blob([dataStr], { type: "text/javascript;charset=utf-8" });
-    saveAs(blob, "user_syllabi.js");
+    saveAs(blob, "user_syllabi.json");
   },
 
   /**
@@ -24,7 +24,7 @@ export const fileHandlerService = {
    */
   downloadAppConfig(): void {
     const appConfigStore = useAppConfigStore();
-    const configStr = `window.USER_APP_CONFIG = ${JSON.stringify(
+    const configStr = `window.UPSHOT_USER_APP_CONFIG = ${JSON.stringify(
       appConfigStore.currentConfig,
       null,
       2
@@ -32,6 +32,6 @@ export const fileHandlerService = {
     const blob = new Blob([configStr], {
       type: "text/javascript;charset=utf-8",
     });
-    saveAs(blob, "user_app_config.js");
+    saveAs(blob, "user_app_config.json");
   },
 };
