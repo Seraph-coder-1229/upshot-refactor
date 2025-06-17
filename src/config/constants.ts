@@ -7,3 +7,18 @@ export const NOTIFICATION_TIME = {
   error: 10000,
   default: 2000,
 };
+
+export const PERSONNEL_FILE_HEADERS = [
+  "Rank",
+  "Display Name",
+  "SHARP Name",
+  "Start Date",
+  "Assigned Position",
+  "Assigned Syllabus Year",
+  "Target Qualification Level",
+  "On Waiver",
+  // New Headers
+  "Syllabus Year L200",
+  "Syllabus Year L300",
+  "Syllabus Year L400",
+];

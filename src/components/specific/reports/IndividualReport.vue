@@ -227,7 +227,9 @@ const report = ref<IndividualReport | null>(null);
 
 onMounted(() => {
   if (props.upgraderId) {
-    // report.value = generateIndividualReport(props.upgraderId);
+    report.value = generateIndividualReport(props.upgraderId);
+    console.log("Generated report for:", props.upgraderId);
+    console.log("Report data:", report.value);
   }
 });
 
@@ -403,54 +405,65 @@ const downloadPdf = async () => {
 
 /**
  * Creates a line chart image for the PDF.
+ * This version waits for the browser to paint the chart before resolving.
  */
-const createChartImage = async (
+const createChartImage = (
   chartData: ProgressDataPoint[],
   chartType: RequirementType
 ): Promise<string> => {
-  const canvas = document.createElement("canvas");
-  canvas.width = 800;
-  canvas.height = 400;
+  return new Promise((resolve) => {
+    const canvas = document.createElement("canvas");
+    // It can be helpful to render the canvas off-screen
+    canvas.style.display = "none";
+    document.body.appendChild(canvas);
 
-  const title =
-    chartType === RequirementType.PQS
-      ? `${report.value?.upgrader.derivedPqsWorkingLevel} PQS Progress`
-      : `${report.value?.upgrader.derivedPqsWorkingLevel} Event Progress`;
+    canvas.width = 800;
+    canvas.height = 400;
 
-  new Chart(canvas, {
-    type: "line",
-    data: {
-      datasets: [
-        {
-          label: "% Progress",
-          data: chartData,
-          borderColor:
-            chartType === RequirementType.PQS
-              ? "rgb(54, 162, 235)"
-              : "rgb(255, 99, 132)",
-          fill: true,
-          tension: 0.1,
-        },
-      ],
-    },
-    options: {
-      animation: false, // Important for immediate rendering
-      scales: {
-        x: {
-          type: "linear",
-          title: { display: true, text: "Months Since Start Date" },
-        },
-        y: {
-          beginAtZero: true,
-          max: 100,
-          title: { display: true, text: "Progress (%)" },
-        },
+    const title =
+      chartType === RequirementType.PQS
+        ? `${report.value?.upgrader.derivedPqsWorkingLevel} PQS Progress`
+        : `${report.value?.upgrader.derivedEventsWorkingLevel} Event Progress`;
+
+    new Chart(canvas, {
+      type: "line",
+      data: {
+        datasets: [
+          {
+            label: "% Progress",
+            data: chartData,
+            borderColor:
+              chartType === RequirementType.PQS
+                ? "rgb(54, 162, 235)"
+                : "rgb(255, 99, 132)",
+            fill: true,
+            tension: 0.1,
+          },
+        ],
       },
-      plugins: { title: { display: true, text: title } },
-    },
-  });
+      options: {
+        animation: false, // Keep animation off for speed
+        scales: {
+          x: {
+            type: "linear",
+            title: { display: true, text: "Months Since Start Date" },
+          },
+          y: {
+            beginAtZero: true,
+            max: 100,
+            title: { display: true, text: "Progress (%)" },
+          },
+        },
+        plugins: { title: { display: true, text: title } },
+      },
+    });
 
-  // No timeout needed if animation is disabled
-  return canvas.toDataURL("image/png");
+    // Use requestAnimationFrame to wait for the next repaint, ensuring the chart is drawn.
+    requestAnimationFrame(() => {
+      resolve(canvas.toDataURL("image/png"));
+      // Clean up the canvas from the DOM
+      document.body.removeChild(canvas);
+    });
+  });
 };
 </script>

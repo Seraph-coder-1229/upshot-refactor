@@ -6,6 +6,7 @@ import {
   type Requirement,
   type PrioritizedRequirement,
   RequirementType,
+  CompletedItemRecord,
 } from "../types/syllabiTypes";
 import { type AppConfig } from "../types/appConfigTypes";
 import { addDays, daysBetween, getTodayUtc } from "../utils/dateUtils";
@@ -14,19 +15,86 @@ import {
   isRequirementWaived,
 } from "./syllabusLogicService";
 
-// No changes to getRemainingRequirements, calculateDerivedWorkingLevels, calculateProgressMetrics
+/**
+ * Transforms raw completion data into a structured array of CompletedItemRecord
+ * by resolving it against a syllabus.
+ */
+function _resolveCompletionsFromRawData(
+  upgrader: Upgrader,
+  syllabus: Syllabus
+): CompletedItemRecord[] {
+  const resolved: CompletedItemRecord[] = [];
+  if (!syllabus?.requirements) return resolved;
+
+  const requirementsMap = new Map(
+    syllabus.requirements.map((req) => [req.name.toUpperCase(), req])
+  );
+  const completionsSet = new Set<string>();
+
+  // Process actual completions
+  if (upgrader.rawCompletions) {
+    for (const raw of upgrader.rawCompletions) {
+      const key = raw.event.toUpperCase();
+      const requirement = requirementsMap.get(key);
+      if (requirement) {
+        resolved.push({
+          requirementId: requirement.id,
+          requirementDisplayName: requirement.displayName,
+          requirementType: requirement.type,
+          completionDate: raw.date,
+          isActualCompletion: true,
+          isSyllabusWaived: false,
+          grade: raw.grade,
+          instructor: raw.instructor,
+          statusRaw: raw.status,
+        });
+        completionsSet.add(key);
+      }
+    }
+  }
+
+  // Process requirements that are considered complete because they are waived
+  for (const requirement of syllabus.requirements) {
+    const key = requirement.name.toUpperCase();
+    if (
+      !completionsSet.has(key) &&
+      isRequirementWaived(requirement, upgrader)
+    ) {
+      resolved.push({
+        requirementId: requirement.id,
+        requirementDisplayName: requirement.displayName,
+        requirementType: requirement.type,
+        completionDate: upgrader.startDate, // Use a placeholder date
+        isActualCompletion: false,
+        isSyllabusWaived: true,
+      });
+    }
+  }
+  return resolved;
+}
+
 export function getRemainingRequirements(
   upgrader: Upgrader,
   syllabus: Syllabus
 ): Requirement[] {
   if (!upgrader || !syllabus?.requirements) return [];
+
   const completedEventNames = new Set(
     upgrader.rawCompletions.map((c) => c.event.toUpperCase())
   );
+
+  // Get the upgrader's target level (e.g., 300)
+  const targetLevel = upgrader.targetQualificationLevel;
+
   return syllabus.requirements.filter((req) => {
     const waived = isRequirementWaived(req, upgrader);
     const completed = completedEventNames.has(req.name.toUpperCase());
-    return !waived && !completed;
+
+    // NEW: Parse the requirement's level and compare it to the target
+    const requirementLevel = parseInt(req.level, 10);
+    const isBelowTarget = requirementLevel <= targetLevel;
+
+    return !waived && !completed && isBelowTarget;
   });
 }
 
@@ -105,59 +173,111 @@ export function calculateDerivedWorkingLevels(
   upgrader.derivedEventsWorkingLevel = finalWorkingLevel;
 }
 
-export function calculateProgressMetrics(
+function calculateProgressMetrics(
   upgrader: Upgrader,
-  syllabus: Syllabus
+  syllabus: Syllabus,
+  appConfig: AppConfig
 ): void {
-  const completedEventNames = new Set(
-    upgrader.rawCompletions.map((c) => c.event.toUpperCase())
-  );
-  const workingLevel =
-    upgrader.derivedPqsWorkingLevel?.trim() ||
-    String(syllabus.baseLevel).trim();
+  const today = getTodayUtc();
+  const settings = appConfig.positionSettings[upgrader.assignedPosition];
+  if (!settings) return;
 
-  const requirementsForLevel = syllabus.requirements.filter(
-    (r) =>
-      String(r.level).trim() === workingLevel &&
-      !isRequirementWaived(r, upgrader)
-  );
-
-  const pqsForLevel = requirementsForLevel.filter(
-    (r) => r.type === RequirementType.PQS
-  );
-  if (pqsForLevel.length > 0) {
-    // FIX: Calculate based on difficulty score, defaulting to 1 if not present
-    const completedPqsDifficulty = pqsForLevel
-      .filter((r) => completedEventNames.has(r.name.toUpperCase()))
-      .reduce((sum, r) => sum + (r.difficulty || 1), 0);
-    const totalPqsDifficulty = pqsForLevel.reduce(
-      (sum, r) => sum + (r.difficulty || 1),
-      0
+  const deadlineSetting = settings.deadlines[upgrader.targetQualificationLevel];
+  if (!deadlineSetting) {
+    upgrader.idealCompletionDate = undefined;
+    upgrader.finalDeadline = undefined;
+  } else {
+    upgrader.idealCompletionDate = addDays(
+      upgrader.startDate,
+      Math.round(deadlineSetting.targetMonths * 30.44)
     );
-    upgrader.pqsProgressPercentage =
-      totalPqsDifficulty > 0
-        ? (completedPqsDifficulty / totalPqsDifficulty) * 100
-        : 100;
+    upgrader.finalDeadline = addDays(
+      upgrader.startDate,
+      Math.round(deadlineSetting.deadlineMonths * 30.44)
+    );
+  }
+
+  const elapsedDays = daysBetween(upgrader.startDate, today);
+  if (elapsedDays <= 0) {
+    // Handles students that haven't started or have bad data
+    upgrader.pqsProgressPercentage = 0;
+    upgrader.eventsProgressPercentage = 0;
+    return;
+  }
+
+  const completions = upgrader.allCompletions.filter(
+    (c) => c.isActualCompletion
+  );
+  const remainingRequirements = getRemainingRequirements(
+    upgrader,
+    syllabus
+  ).length;
+
+  // --- REVISED RATE CALCULATION ---
+  // Prioritize recent activity (last 90 days) for a more accurate "current pace".
+  const recentWindowDays = 90;
+  const recentCompletions = completions.filter(
+    (c) => daysBetween(c.completionDate, today) <= recentWindowDays
+  ).length;
+
+  let dailyRate = 0;
+  // Use recent rate only if there's significant activity, otherwise use overall average.
+  if (recentCompletions > 2 && elapsedDays > recentWindowDays) {
+    dailyRate = recentCompletions / recentWindowDays;
+  } else {
+    dailyRate = completions.length / elapsedDays;
+  }
+
+  if (dailyRate > 0) {
+    const daysToComplete = remainingRequirements / dailyRate;
+    upgrader.projectedTotalCompletionDate = addDays(
+      today,
+      Math.round(daysToComplete)
+    );
+  } else {
+    upgrader.projectedTotalCompletionDate = undefined;
+  }
+
+  // --- CORRECTED PACING CALCULATION ---
+  // Pacing = Deadline Date - Projected Date. Positive is ahead, negative is behind.
+  if (upgrader.projectedTotalCompletionDate && upgrader.finalDeadline) {
+    upgrader.pacingAgainstDeadlineDays = daysBetween(
+      upgrader.finalDeadline,
+      upgrader.projectedTotalCompletionDate
+    );
+  }
+  if (upgrader.projectedTotalCompletionDate && upgrader.idealCompletionDate) {
+    upgrader.pacingAgainstTargetDays = daysBetween(
+      upgrader.idealCompletionDate,
+      upgrader.projectedTotalCompletionDate
+    );
+  }
+
+  // --- Percentage calculations remain the same ---
+  const relevantRequirements = syllabus.requirements.filter(
+    (req) => parseInt(req.level, 10) <= upgrader.targetQualificationLevel
+  );
+  const pqsItems = relevantRequirements.filter(
+    (r) => r.type === RequirementType.PQS && !r.isDefaultWaived
+  ).length;
+  const eventItems = relevantRequirements.filter(
+    (r) => r.type === RequirementType.Event && !r.isDefaultWaived
+  ).length;
+
+  if (pqsItems > 0) {
+    const pqsCompleted = completions.filter(
+      (c) => c.requirementType === RequirementType.PQS
+    ).length;
+    upgrader.pqsProgressPercentage = (pqsCompleted / pqsItems) * 100;
   } else {
     upgrader.pqsProgressPercentage = 100;
   }
 
-  const eventsForLevel = requirementsForLevel.filter(
-    (r) => r.type === RequirementType.Event
-  );
-  if (eventsForLevel.length > 0) {
-    // FIX: Apply the same difficulty logic to events
-    const completedEventsDifficulty = eventsForLevel
-      .filter((r) => completedEventNames.has(r.name.toUpperCase()))
-      .reduce((sum, r) => sum + (r.difficulty || 1), 0);
-    const totalEventsDifficulty = eventsForLevel.reduce(
-      (sum, r) => sum + (r.difficulty || 1),
-      0
-    );
-    upgrader.eventsProgressPercentage =
-      totalEventsDifficulty > 0
-        ? (completedEventsDifficulty / totalEventsDifficulty) * 100
-        : 100;
+  if (eventItems > 0) {
+    const eventsCompleted = completions.filter(
+      (c) => c.requirementType === RequirementType.Event
+    ).length;
+    upgrader.eventsProgressPercentage = (eventsCompleted / eventItems) * 100;
   } else {
     upgrader.eventsProgressPercentage = 100;
   }
@@ -181,7 +301,7 @@ function _calculateItemsToMeetMilestones(
     finalDeadline,
     idealCompletionDate,
     pacingAgainstDeadlineDays,
-    pacingAgainstIdealDays,
+    pacingAgainstTargetDays,
   } = upgrader;
 
   if (!startDate || !finalDeadline || !idealCompletionDate) {
@@ -221,8 +341,8 @@ function _calculateItemsToMeetMilestones(
 
   let eventsToMeetIdeal: number | undefined = 0;
   let pqsToMeetIdeal: number | undefined = 0;
-  if (pacingAgainstIdealDays && pacingAgainstIdealDays < 0) {
-    const days = Math.abs(pacingAgainstIdealDays);
+  if (pacingAgainstTargetDays && pacingAgainstDeadlineDays! < 0) {
+    const days = Math.abs(pacingAgainstTargetDays);
     eventsToMeetIdeal = Math.ceil(days * eventVelocityForIdeal);
     pqsToMeetIdeal = Math.ceil(days * pqsVelocityForIdeal);
   }
@@ -397,7 +517,7 @@ export function calculatePacing(
     appConfig,
     totalNonWaivedDifficulty
   );
-  upgrader.pacingAgainstIdealDays = idealPacing;
+  upgrader.pacingAgainstTargetDays = idealPacing;
   upgrader.idealCompletionDate = idealCompletionDate;
 
   const { pacing: deadlinePacing, finalDeadline } = _calculateDeadlinePacing(
@@ -555,6 +675,15 @@ export function calculateReadiness(
   upgrader.readinessAgainstDeadline = _getReadinessFromPacing(
     upgrader.pacingAgainstDeadlineDays
   );
+  console.log(
+    `[Metrics] Readiness for ${upgrader.displayName} - Target: ${
+      upgrader.readinessAgainstTarget
+    }, Deadline: ${upgrader.readinessAgainstDeadline}, PacingTargetDays: ${
+      upgrader.pacingAgainstTargetDays
+    }, PacingDeadlineDays: ${
+      upgrader.pacingAgainstDeadlineDays
+    }, Current Days: ${daysBetween(upgrader.startDate, getTodayUtc())}`
+  );
 }
 
 export function getPrioritizedRequirements(
@@ -623,10 +752,10 @@ export function calculateItemsToMeetMilestones(
 ): void {
   const remaining = getRemainingRequirements(upgrader, syllabus);
   const remainingEvents = remaining.filter(
-    (r) => r.type === RequirementType.Event
+    (r) => r.type === RequirementType.Event && !r.isDefaultWaived
   ).length;
   const remainingPqs = remaining.filter(
-    (r) => r.type === RequirementType.PQS
+    (r) => r.type === RequirementType.PQS && !r.isDefaultWaived
   ).length;
 
   // Calculate items needed based on progress against deadline
@@ -646,4 +775,32 @@ export function calculateItemsToMeetMilestones(
   const pacingCost = pacing < 0 ? Math.min(50, Math.abs(pacing)) : 0; // max 50 points from being behind
   const workCost = Math.min(50, remainingTotal / 2); // max 50 points from volume of work
   upgrader.costFactor = Math.round(pacingCost + workCost);
+}
+
+/**
+ * Runs the complete sequence of calculations for an upgrader's progress.
+ * This function mutates the upgrader object directly.
+ * @param upgrader The upgrader to calculate.
+ * @param syllabus The syllabus they are assigned to.
+ * @param appConfig The current application configuration.
+ */
+export function runFullUpgraderCalculation(
+  upgrader: Upgrader,
+  syllabus: Syllabus,
+  appConfig: AppConfig
+): void {
+  // Step 1: Resolve raw completions into the structured `allCompletions` array.
+  upgrader.allCompletions = _resolveCompletionsFromRawData(upgrader, syllabus);
+
+  // Step 2: Calculate the derived working levels for the upgrader.
+  calculateDerivedWorkingLevels(upgrader, syllabus, appConfig);
+
+  // Step 3: Calculate core progress metrics like percentages and dates.
+
+  calculatePacing(upgrader, syllabus, appConfig);
+  calculateReadiness(upgrader, syllabus);
+  calculateProjections(upgrader, syllabus, appConfig);
+  calculateProgressMetrics(upgrader, syllabus, appConfig);
+  // Step 4: Calculate "what's next" metrics.
+  calculateItemsToMeetMilestones(upgrader, syllabus, appConfig);
 }

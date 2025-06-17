@@ -6,21 +6,7 @@ import {
   excelToJsDate_LocalIntent,
   jsDateToExcel,
 } from "../../utils/dateUtils";
-
-const PERSONNEL_FILE_HEADERS = [
-  "Rank",
-  "Display Name",
-  "SHARP Name",
-  "Start Date",
-  "Assigned Position",
-  "Assigned Syllabus Year",
-  "Target Qualification Level",
-  "On Waiver",
-  // New Headers
-  "Syllabus Year L200",
-  "Syllabus Year L300",
-  "Syllabus Year L400",
-];
+import { PERSONNEL_FILE_HEADERS } from "../../config/constants";
 
 interface PersonnelExcelRow {
   Rank?: string;

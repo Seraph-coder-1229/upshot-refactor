@@ -39,11 +39,11 @@ window.UPSHOT_USER_APP_CONFIG = {
         "useDerivedLevels": true,
         "deadlines": {
           "200": {
-            "targetMonths": 7,
-            "deadlineMonths": 14
+            "targetMonths": 3,
+            "deadlineMonths": 6
           },
           "300": {
-            "targetMonths": 8,
+            "targetMonths": 12,
             "deadlineMonths": 18
           }
         }

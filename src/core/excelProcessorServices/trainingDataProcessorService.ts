@@ -2,7 +2,7 @@ import * as XLSX from "xlsx";
 import { excelToJsDate_LocalIntent } from "../../utils/dateUtils";
 import { useUiStore } from "../../stores/uiStore";
 import { loggingService } from "../../utils/loggingService";
-import { DetailedCompletionRecord } from "@/types/personnelTypes"; // Import the type from its new home
+import { DetailedCompletionRecord, Upgrader } from "@/types/personnelTypes"; // Import the type from its new home
 
 const SVC_MODULE = "[TrainingDataProcessor]";
 

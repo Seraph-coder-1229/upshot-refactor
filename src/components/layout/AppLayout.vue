@@ -183,11 +183,13 @@ import {
   DocumentTextIcon,
   HomeIcon,
   QuestionMarkCircleIcon,
+  UserGroupIcon,
   XMarkIcon,
 } from "@heroicons/vue/24/outline";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: HomeIcon },
+  { name: "Roster", href: "/personnel", icon: UserGroupIcon },
   { name: "Reports", href: "/reports", icon: ChartBarIcon },
   { name: "Settings", href: "/settings", icon: CogIcon },
   { name: "Help", href: "/help", icon: QuestionMarkCircleIcon },

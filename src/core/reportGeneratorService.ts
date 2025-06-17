@@ -36,62 +36,65 @@ const SVC_MODULE = "[ReportGenerator]";
  */
 function calculateProgressHistory(
   upgrader: Upgrader,
-  syllabus: Syllabus
+  syllabus: Syllabus,
+  targetLevel: number // NEW: Explicitly pass the target level
 ): {
   pqsProgressHistory: ProgressDataPoint[];
   eventsProgressHistory: ProgressDataPoint[];
 } {
-  const requirementMap = new Map(
-    syllabus.requirements.map((r) => [r.name.toUpperCase(), r])
+  const pqsHistory: ProgressDataPoint[] = [];
+  const eventsHistory: ProgressDataPoint[] = [];
+
+  const startDate = new Date(upgrader.startDate);
+  const today = new Date();
+  const totalMonths =
+    (today.getFullYear() - startDate.getFullYear()) * 12 +
+    (today.getMonth() - startDate.getMonth());
+
+  // --- START OF THE FIX ---
+  // Filter the requirements to ONLY include those at or below the target level.
+  const relevantRequirements = syllabus.requirements.filter(
+    (req) => parseInt(req.level, 10) <= targetLevel
   );
 
-  const totalPqsDifficulty = syllabus.requirements
-    .filter((r) => r.type === RequirementType.PQS)
-    .reduce((sum, r) => sum + (r.difficulty || 1), 0);
+  // Calculate totals based on the filtered, relevant requirements.
+  const totalPqs = relevantRequirements.filter(
+    (r) => r.type === RequirementType.PQS && !r.isDefaultWaived
+  ).length;
+  const totalEvents = relevantRequirements.filter(
+    (r) => r.type === RequirementType.Event && !r.isDefaultWaived
+  ).length;
+  // --- END OF THE FIX ---
 
-  const totalEventsDifficulty = syllabus.requirements
-    .filter((r) => r.type === RequirementType.Event)
-    .reduce((sum, r) => sum + (r.difficulty || 1), 0);
+  for (let month = 0; month <= totalMonths; month++) {
+    const currentDate = addDays(startDate, month * 30.44);
 
-  const pqsProgressHistory: ProgressDataPoint[] = [{ x: 0, y: 0 }];
-  const eventsProgressHistory: ProgressDataPoint[] = [{ x: 0, y: 0 }];
+    const completionsByThisMonth = upgrader.allCompletions.filter(
+      (c) => c.isActualCompletion && new Date(c.completionDate) <= currentDate
+    );
 
-  if (upgrader.rawCompletions.length === 0) {
-    return { pqsProgressHistory, eventsProgressHistory };
-  }
+    const pqsCompleted = completionsByThisMonth.filter(
+      (c) => c.requirementType === RequirementType.PQS
+    ).length;
+    const eventsCompleted = completionsByThisMonth.filter(
+      (c) => c.requirementType === RequirementType.Event
+    ).length;
 
-  const sortedCompletions = [...upgrader.rawCompletions].sort(
-    (a, b) => a.date.getTime() - b.date.getTime()
-  );
-
-  let cumulativePqsDifficulty = 0;
-  let cumulativeEventsDifficulty = 0;
-
-  for (const completion of sortedCompletions) {
-    const requirement = requirementMap.get(completion.event.toUpperCase());
-    if (!requirement) continue;
-
-    const monthsSinceStart =
-      daysBetween(upgrader.startDate, completion.date) / 30.44;
-
-    if (requirement.type === RequirementType.PQS) {
-      cumulativePqsDifficulty += requirement.difficulty || 1;
-      const progress =
-        totalPqsDifficulty > 0
-          ? (cumulativePqsDifficulty / totalPqsDifficulty) * 100
-          : 100;
-      pqsProgressHistory.push({ x: monthsSinceStart, y: progress });
-    } else if (requirement.type === RequirementType.Event) {
-      cumulativeEventsDifficulty += requirement.difficulty || 1;
-      const progress =
-        totalEventsDifficulty > 0
-          ? (cumulativeEventsDifficulty / totalEventsDifficulty) * 100
-          : 100;
-      eventsProgressHistory.push({ x: monthsSinceStart, y: progress });
+    if (totalPqs > 0) {
+      pqsHistory.push({ x: month, y: (pqsCompleted / totalPqs) * 100 });
+    }
+    if (totalEvents > 0) {
+      eventsHistory.push({
+        x: month,
+        y: (eventsCompleted / totalEvents) * 100,
+      });
     }
   }
 
-  return { pqsProgressHistory, eventsProgressHistory };
+  return {
+    pqsProgressHistory: pqsHistory,
+    eventsProgressHistory: eventsHistory,
+  };
 }
 
 function createInitialCategoryCount(): Record<ReadinessStatus, number> {
@@ -262,29 +265,60 @@ export function generateIndividualReport(
   const syllabiStore = useSyllabiStore();
 
   const upgrader = personnelStore.getPersonnelById(upgraderId);
-  if (!upgrader) return null;
+  if (!upgrader) {
+    loggingService.logError(
+      `${SVC_MODULE} Could not find upgrader with id: ${upgraderId}`
+    );
+    return null;
+  }
 
-  const syllabus = syllabiStore.findSyllabus(
+  const fullSyllabus = syllabiStore.findSyllabus(
     upgrader.assignedPosition,
     upgrader.assignedSyllabusYear
   );
-  if (!syllabus) return null;
 
+  if (!fullSyllabus) {
+    loggingService.logError(
+      `${SVC_MODULE} Could not find syllabus for ${upgrader.displayName}`
+    );
+    return null;
+  }
+
+  // --- START OF THE FIX ---
+  // Create a new syllabus object that is scoped to the upgrader's target level.
+  const targetLevel = upgrader.targetQualificationLevel;
+  const scopedSyllabus: Syllabus = {
+    ...fullSyllabus,
+    requirements: fullSyllabus.requirements.filter(
+      (req) => parseInt(req.level, 10) <= targetLevel
+    ),
+  };
+  // --- END OF THE FIX ---
+
+  // Now, use the new `scopedSyllabus` for all report calculations.
+  const priorityTasks = getPrioritizedRequirements(upgrader, scopedSyllabus);
   const { pqsProgressHistory, eventsProgressHistory } =
-    calculateProgressHistory(upgrader, syllabus);
+    calculateProgressHistory(
+      upgrader,
+      scopedSyllabus,
+      upgrader.targetQualificationLevel
+    );
 
-  return {
+  const report: IndividualReport = {
     upgrader,
     summary: {
-      readinessAgainstDeadline: upgrader.readinessAgainstDeadline!,
-      pacingAgainstDeadlineDays: upgrader.pacingAgainstDeadlineDays!,
+      readinessAgainstDeadline:
+        upgrader.readinessAgainstDeadline ?? ReadinessStatus.Unknown,
+      pacingAgainstDeadlineDays: upgrader.pacingAgainstDeadlineDays ?? 0,
       projectedCompletionDate: upgrader.projectedTotalCompletionDate,
     },
-    priorityTasks: getPrioritizedRequirements(upgrader, syllabus),
+    priorityTasks,
     allCompletions: upgrader.allCompletions,
     pqsProgressHistory,
     eventsProgressHistory,
   };
+
+  return report;
 }
 
 /**

@@ -60,4 +60,5 @@ const router = useRouter();
 
 // Find the upgrader in the store based on the ID from the URL
 const upgrader = computed(() => personnelStore.getPersonnelById(props.id));
+console.log("Upgrader:", upgrader.value);
 </script>

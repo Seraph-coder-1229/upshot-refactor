@@ -5,6 +5,7 @@ import {
   createWebHashHistory,
   createWebHistory,
 } from "vue-router";
+// Main Views
 import DashboardView from "../views/DashboardView.vue";
 
 // Report Views
@@ -22,9 +23,12 @@ import SyllabusUploadView from "../views/SyllabusUploadView.vue";
 import SyllabusUploadConfirmation from "../components/specific/SyllabusManager/SyllabusUploadConfirmation.vue";
 import SyllabusEditView from "../views/SyllabusEditView.vue";
 import AppSettingsView from "../views/AppSettingsView.vue";
+
 // Other Main Views
 import PersonnelUploadView from "../views/PersonnelUploadView.vue";
+import PersonnelView from "../views/PersonnelView.vue";
 import TrainingUploadView from "../views/TrainingUploadView.vue";
+import TrainingImportReportView from "../views/TrainingImportReportView.vue";
 import HelpView from "../views/HelpView.vue";
 import LogsView from "../views/LogsView.vue";
 import PersonnelEditView from "../views/PersonnelEditView.vue";
@@ -35,6 +39,11 @@ const routes = [
     path: "/personnel-upload",
     name: "PersonnelUpload",
     component: PersonnelUploadView,
+  },
+  {
+    path: "/personnel",
+    name: "Personnel",
+    component: PersonnelView,
   },
   {
     // New Route for editing personnel
@@ -48,7 +57,11 @@ const routes = [
     name: "TrainingUpload",
     component: TrainingUploadView,
   },
-
+  {
+    path: "/data/import-report",
+    name: "TrainingImportReport",
+    component: TrainingImportReportView,
+  },
   // Report Routes
   { path: "/reports", name: "Reports", component: ReportsView },
   {
@@ -77,6 +90,12 @@ const routes = [
     name: "SyllabusManagement",
     component: SyllabusManagementView,
   },
+  {
+    path: "/settings/syllabi/upload",
+    name: "SyllabusUpload",
+    component: SyllabusUploadView,
+  },
+
   {
     path: "/settings/app",
     name: "App Config",

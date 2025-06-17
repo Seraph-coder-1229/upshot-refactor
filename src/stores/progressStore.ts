@@ -1,128 +1,117 @@
+// src/stores/progressStore.ts
 import { defineStore } from "pinia";
 import { usePersonnelStore } from "./personnelStore";
-import { useUiStore } from "./uiStore";
 import { useSyllabiStore } from "./syllabiStore";
-import { createPersonnelNameMatcher } from "../utils/nameMatcher";
-import {
-  processSharpTrainingFile,
-  type ProcessedSharpDataMap,
-} from "../core/excelProcessorServices/trainingDataProcessorService";
 import { useAppConfigStore } from "./appConfigStore";
+import { useUiStore } from "./uiStore";
+import { createPersonnelNameMatcher } from "../utils/nameMatcher";
+import { processSharpTrainingFile } from "../core/excelProcessorServices/trainingDataProcessorService";
+import { runFullUpgraderCalculation } from "../core/trainingLogicService";
 import { loggingService } from "@/utils/loggingService";
-import { type RawCompletion } from "@/types/progressTypes";
+import { Upgrader } from "@/types/personnelTypes";
 
 const SVC_MODULE = "[ProgressStore]";
 
 export const useProgressStore = defineStore("progress", {
   state: () => ({
-    pendingSharpData: null as ProcessedSharpDataMap | null,
-    detectedTrack: null as string | null,
     lastMergedUpgraderIds: [] as string[],
   }),
+
   actions: {
-    async loadAndProcessSharpFile(sharpFile: File) {
-      const uiStore = useUiStore();
-      this.pendingSharpData = null;
-      this.detectedTrack = null;
-      if (
-        !usePersonnelStore().isDataLoaded ||
-        useSyllabiStore().allSyllabi.length === 0
-      ) {
-        uiStore.addNotification({
-          message: "Please load Personnel and Syllabi data first.",
-          type: "warning",
-        });
+    /**
+     * Helper function to run all calculations for a single upgrader.
+     * This is the missing piece of the puzzle.
+     */
+    _recalculateUpgraderMetrics(upgrader: Upgrader) {
+      const syllabiStore = useSyllabiStore();
+      const appConfigStore = useAppConfigStore();
+      const syllabus = syllabiStore.findSyllabus(
+        upgrader.assignedPosition,
+        upgrader.assignedSyllabusYear
+      );
+
+      if (!syllabus) {
+        loggingService.logWarn(
+          `[Metrics] No matching syllabus found for ${upgrader.displayName}. Skipping calculations.`
+        );
         return;
       }
+
+      // Run all the necessary calculations from the logic service.
+      runFullUpgraderCalculation(upgrader, syllabus, appConfigStore.config);
+    },
+
+    /**
+     * Processes a SHARP file, updates personnel records, recalculates all metrics,
+     * and stores the IDs of affected users.
+     */
+    async processAndApplySharpReport(file: File) {
+      const personnelStore = usePersonnelStore();
+      const uiStore = useUiStore();
+      this.lastMergedUpgraderIds = [];
+
+      if (personnelStore.allPersonnel.length === 0) {
+        const message =
+          "Cannot process SHARP data until a personnel roster is loaded.";
+        loggingService.logWarn(`${SVC_MODULE} ${message}`);
+        return { success: false, updatedCount: 0, message };
+      }
+
       uiStore.setGlobalLoading(true);
       try {
-        const { detectedTrack, data } = await processSharpTrainingFile(
-          sharpFile
-        );
-        if (data.size > 0) {
-          this.pendingSharpData = data;
-          this.detectedTrack = detectedTrack;
-        } else {
-          uiStore.addNotification({
-            message: "SHARP file processed, but no data was found.",
-            type: "warning",
-          });
+        const processedFile = await processSharpTrainingFile(file);
+        const { data: processedData, detectedTrack } = processedFile;
+
+        if (!processedData || processedData.size === 0) {
+          const message =
+            "No valid training records were found in the SHARP file.";
+          loggingService.logWarn(`${SVC_MODULE} ${message}`);
+          return { success: false, updatedCount: 0, message };
         }
-      } catch (error) {
-        console.error("Error processing SHARP file:", error);
-        uiStore.addNotification({
-          message: "An error occurred during SHARP file processing.",
-          type: "error",
+
+        const nameMatcher = createPersonnelNameMatcher(
+          personnelStore.allPersonnel
+        );
+        const updatedIds = new Set<string>();
+        let recordsMerged = 0;
+
+        processedData.forEach((studentData, nameFromSharpFile) => {
+          const matchedPersonnelId = nameMatcher.findMatch(
+            nameFromSharpFile,
+            detectedTrack
+          );
+          if (matchedPersonnelId) {
+            const upgrader =
+              personnelStore.getPersonnelById(matchedPersonnelId);
+            if (upgrader) {
+              upgrader.rawCompletions.push(...studentData.completions);
+              recordsMerged += studentData.completions.length;
+              updatedIds.add(upgrader.id);
+            }
+          }
         });
+
+        // CRITICAL STEP: Recalculate metrics for every person who was updated.
+        for (const id of updatedIds) {
+          const upgrader = personnelStore.getPersonnelById(id);
+          if (upgrader) {
+            this._recalculateUpgraderMetrics(upgrader);
+          }
+        }
+
+        this.lastMergedUpgraderIds = Array.from(updatedIds);
+        const message = `${recordsMerged} training records applied to ${updatedIds.size} personnel. All progress metrics have been updated.`;
+        loggingService.logInfo(`${SVC_MODULE} ${message}`);
+        return { success: true, updatedCount: updatedIds.size, message };
+      } catch (error: any) {
+        loggingService.logError(
+          `${SVC_MODULE} Failed to process and apply SHARP report.`,
+          error
+        );
+        return { success: false, updatedCount: 0, message: error.message };
       } finally {
         uiStore.setGlobalLoading(false);
       }
-    },
-    confirmAndMergeSharpData() {
-      // This function remains as-is for the single-file workflow
-    },
-    // This is the multi-file action that needs to be fixed
-    async processAndMergeMultipleFiles(files: File[]) {
-      const personnelStore = usePersonnelStore();
-      const uiStore = useUiStore();
-      let totalCompletions = 0;
-      const updatedIds = new Set<string>();
-
-      loggingService.logInfo(
-        `${SVC_MODULE} Starting batch processing of ${files.length} files.`
-      );
-
-      for (const file of files) {
-        try {
-          const { data } = await processSharpTrainingFile(file);
-          if (data.size > 0) {
-            data.forEach((studentData, studentName) => {
-              const person = personnelStore.getUpgraderByName(studentName);
-              if (person) {
-                updatedIds.add(person.id); // Add the person's ID to our set of updated people
-                const rawCompletions: RawCompletion[] =
-                  studentData.completions.map((c) => ({
-                    requirementId: c.event,
-                    completionDate: c.date,
-                    grade: c.grade,
-                  }));
-                personnelStore.addCompletionsToUpgrader(
-                  person.id,
-                  rawCompletions
-                );
-                totalCompletions += rawCompletions.length;
-              }
-            });
-          }
-        } catch (error: any) {
-          loggingService.logError(
-            `${SVC_MODULE} Failed to process file ${file.name} in batch.`,
-            error
-          );
-          uiStore.addNotification({
-            message: `Failed to process ${file.name}: ${error.message}`,
-            type: "error",
-          });
-        }
-      }
-
-      // --- THIS IS THE FIX ---
-      // After processing all files, update the store's state with the list of people who were updated.
-      this.lastMergedUpgraderIds = Array.from(updatedIds);
-      // --- END OF FIX ---
-
-      loggingService.logInfo(
-        `${SVC_MODULE} Batch processing complete. Merged ${totalCompletions} records for ${updatedIds.size} personnel.`
-      );
-
-      return {
-        completionsFound: totalCompletions,
-        personnelUpdated: updatedIds.size,
-      };
-    },
-    cancelSharpDataMerge() {
-      this.pendingSharpData = null;
-      this.detectedTrack = null;
     },
   },
 });

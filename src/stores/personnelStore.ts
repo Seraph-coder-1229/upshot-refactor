@@ -6,14 +6,7 @@ import { type DetailedCompletionRecord } from "../types/personnelTypes";
 import { processPersonnelFile } from "../core/excelProcessorServices/personnelProcessorService";
 import { useSyllabiStore } from "./syllabiStore";
 import { useAppConfigStore } from "./appConfigStore";
-import {
-  calculateDerivedWorkingLevels,
-  calculateItemsToMeetMilestones,
-  calculatePacing,
-  calculateProgressMetrics,
-  calculateProjections,
-  calculateReadiness,
-} from "@/core/trainingLogicService";
+import { runFullUpgraderCalculation } from "@/core/trainingLogicService";
 
 export const usePersonnelStore = defineStore("personnel", {
   state: () => ({
@@ -117,24 +110,7 @@ export const usePersonnelStore = defineStore("personnel", {
           updatedUpgrader.assignedSyllabusYear
         );
         if (syllabus) {
-          calculateProgressMetrics(updatedUpgrader, syllabus);
-          calculateDerivedWorkingLevels(
-            updatedUpgrader,
-            syllabus,
-            appConfigStore.currentConfig
-          );
-          calculatePacing(
-            updatedUpgrader,
-            syllabus,
-            appConfigStore.currentConfig
-          );
-          calculateProjections(
-            updatedUpgrader,
-            syllabus,
-            appConfigStore.currentConfig
-          );
-          calculateReadiness(updatedUpgrader, syllabus);
-          calculateItemsToMeetMilestones(
+          runFullUpgraderCalculation(
             updatedUpgrader,
             syllabus,
             appConfigStore.currentConfig
@@ -192,24 +168,7 @@ export const usePersonnelStore = defineStore("personnel", {
 
       if (syllabus) {
         // These functions mutate the 'updatedUpgrader' object, adding all calculated fields.
-        calculateProgressMetrics(updatedUpgrader, syllabus);
-        calculateDerivedWorkingLevels(
-          updatedUpgrader,
-          syllabus,
-          appConfigStore.currentConfig
-        );
-        calculatePacing(
-          updatedUpgrader,
-          syllabus,
-          appConfigStore.currentConfig
-        );
-        calculateProjections(
-          updatedUpgrader,
-          syllabus,
-          appConfigStore.currentConfig
-        );
-        calculateReadiness(updatedUpgrader, syllabus);
-        calculateItemsToMeetMilestones(
+        runFullUpgraderCalculation(
           updatedUpgrader,
           syllabus,
           appConfigStore.currentConfig

@@ -1,40 +1,41 @@
 <template>
-  <div class="container mx-auto py-4">
-    <SharpFileUpload v-if="viewState === 'upload'" />
+  <div class="p-4 sm:p-6 lg:p-8 bg-gray-50 min-h-full">
+    <ActionHeader
+      title="Training Data Management"
+      subtitle="Upload SHARP reports to update trainee progress."
+    >
+      <template #actions>
+        <router-link
+          :to="{ name: 'TrainingUpload' }"
+          class="ml-3 inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+        >
+          <ArrowUpTrayIcon class="-ml-0.5 mr-1.5 h-5 w-5" />
+          <span>Upload SHARP Report</span>
+        </router-link>
+      </template>
+    </ActionHeader>
 
-    <SharpFileConfirmation v-if="viewState === 'confirm'" />
-
-    <div v-if="viewState === 'report'">
-      <UpgraderReportTable
-        :upgrader-ids="progressStore.lastMergedUpgraderIds"
-      />
-      <button
-        @click="progressStore.cancelSharpDataMerge()"
-        class="mt-4 px-4 py-2 border rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
-      >
-        Process Another File
-      </button>
+    <div class="mt-4">
+      <h2 class="text-lg font-medium text-gray-900">Upgrader Status</h2>
+      <p class="mt-1 text-sm text-gray-500">
+        This table shows the completion status for all personnel identified as
+        'Upgraders'.
+      </p>
+      <UpgraderReportTable class="mt-4" />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
-import { useProgressStore } from "@/stores/progressStore";
-import SharpFileUpload from "@/components/specific/TrainingDataManager/SharpFileUpload.vue";
-import SharpFileConfirmation from "@/components/specific/TrainingDataManager/SharpFileConfirmation.vue";
+import ActionHeader from "@/components/ui/ActionHeader.vue";
 import UpgraderReportTable from "@/components/specific/TrainingDataManager/UpgraderReportTable.vue";
-
-const progressStore = useProgressStore();
-
-// This computed property determines which state the view should be in.
-const viewState = computed(() => {
-  if (progressStore.pendingSharpData) {
-    return "confirm";
-  }
-  if (progressStore.lastMergedUpgraderIds.length > 0) {
-    return "report";
-  }
-  return "upload";
-});
+import { ArrowUpTrayIcon } from "@heroicons/vue/24/outline";
+import { usePersonnelStore } from "@/stores/personnelStore";
+import { computed } from "vue";
+const personnelStore = usePersonnelStore();
+const upgraderIds = computed(() =>
+  personnelStore.allPersonnel
+    .filter((p) => p.isUpgrader) // Assuming an 'isUpgrader' flag, adjust if needed
+    .map((p) => p.id)
+);
 </script>
