@@ -322,9 +322,13 @@ const downloadPdf = async () => {
   );
   doc.line(15, 18, doc.internal.pageSize.getWidth() - 15, 18);
 
+  doc.setFontSize(12);
+  doc.setFont(undefined, "bold");
+  doc.text("Upgrader", 15, 30);
+
+  // 2. Create the table without the confusing 'head' option.
   autoTable(doc, {
-    startY: 25,
-    head: [["Upgrader Identification"]],
+    startY: 34, // Start the table just below the new title
     body: [
       ["Name", upgrader.displayName],
       ["Rank", upgrader.rank ?? "N/A"],
@@ -332,8 +336,11 @@ const downloadPdf = async () => {
       ["Syllabus Year", upgrader.assignedSyllabusYear],
       ["Readiness Status", upgrader.readinessAgainstDeadline ?? "Unknown"],
     ],
-    theme: "striped",
-    headStyles: { fillColor: [41, 128, 185] },
+    theme: "plain", // 'plain' is often better for key-value tables
+    columnStyles: {
+      0: { fontStyle: "bold", cellWidth: 50 }, // Style for the 'Label' column
+      1: { cellWidth: "auto" }, // Style for the 'Value' column
+    },
   });
 
   autoTable(doc, {
