@@ -112,7 +112,18 @@ export const useSyllabiStore = defineStore("syllabi", {
           a.localeCompare(b, undefined, { numeric: true })
         );
       },
+    getSyllabusYearsForPosition:
+      (state) =>
+      (position: string): string[] => {
+        if (!position) return [];
+        const years = state.allSyllabi
+          .filter((s) => s.position.toUpperCase() === position.toUpperCase())
+          .map((s) => s.year);
+        // Return a unique, sorted list of years
+        return [...new Set(years)].sort((a, b) => b.localeCompare(a));
+      },
   },
+
   actions: {
     setPendingSyllabus(syllabus: Syllabus | null) {
       this.pendingSyllabusForConfirmation = syllabus;

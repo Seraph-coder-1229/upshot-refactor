@@ -18,14 +18,216 @@ import {
   type LLMAnonymizedUpgraderReportData,
   type MonthlyReportData,
   type MonthlyTrackSummary,
+  ProgressDataPoint,
 } from "../types/reportTypes";
 import { loggingService } from "../utils/loggingService";
 import { ReadinessStatus, Upgrader } from "@/types/personnelTypes";
 import { anonymizeData } from "@/utils/anonymizer";
 import { addDays } from "date-fns";
-import { getTodayUtc } from "@/utils/dateUtils";
+import { daysBetween, getTodayUtc } from "@/utils/dateUtils";
 import { RequirementType, Syllabus } from "@/types/syllabiTypes";
+import { type PrioritizedRequirement } from "@/types/syllabiTypes";
+import { type TrackOverview } from "@/types/reportTypes";
+import { type LLMAnonymizedEventDetail } from "@/types/reportTypes";
 const SVC_MODULE = "[ReportGenerator]";
+
+/**
+ * Generates the historical progress data points for line charts.
+ */
+function calculateProgressHistory(
+  upgrader: Upgrader,
+  syllabus: Syllabus
+): {
+  pqsProgressHistory: ProgressDataPoint[];
+  eventsProgressHistory: ProgressDataPoint[];
+} {
+  const requirementMap = new Map(
+    syllabus.requirements.map((r) => [r.name.toUpperCase(), r])
+  );
+
+  const totalPqsDifficulty = syllabus.requirements
+    .filter((r) => r.type === RequirementType.PQS)
+    .reduce((sum, r) => sum + (r.difficulty || 1), 0);
+
+  const totalEventsDifficulty = syllabus.requirements
+    .filter((r) => r.type === RequirementType.Event)
+    .reduce((sum, r) => sum + (r.difficulty || 1), 0);
+
+  const pqsProgressHistory: ProgressDataPoint[] = [{ x: 0, y: 0 }];
+  const eventsProgressHistory: ProgressDataPoint[] = [{ x: 0, y: 0 }];
+
+  if (upgrader.rawCompletions.length === 0) {
+    return { pqsProgressHistory, eventsProgressHistory };
+  }
+
+  const sortedCompletions = [...upgrader.rawCompletions].sort(
+    (a, b) => a.date.getTime() - b.date.getTime()
+  );
+
+  let cumulativePqsDifficulty = 0;
+  let cumulativeEventsDifficulty = 0;
+
+  for (const completion of sortedCompletions) {
+    const requirement = requirementMap.get(completion.event.toUpperCase());
+    if (!requirement) continue;
+
+    const monthsSinceStart =
+      daysBetween(upgrader.startDate, completion.date) / 30.44;
+
+    if (requirement.type === RequirementType.PQS) {
+      cumulativePqsDifficulty += requirement.difficulty || 1;
+      const progress =
+        totalPqsDifficulty > 0
+          ? (cumulativePqsDifficulty / totalPqsDifficulty) * 100
+          : 100;
+      pqsProgressHistory.push({ x: monthsSinceStart, y: progress });
+    } else if (requirement.type === RequirementType.Event) {
+      cumulativeEventsDifficulty += requirement.difficulty || 1;
+      const progress =
+        totalEventsDifficulty > 0
+          ? (cumulativeEventsDifficulty / totalEventsDifficulty) * 100
+          : 100;
+      eventsProgressHistory.push({ x: monthsSinceStart, y: progress });
+    }
+  }
+
+  return { pqsProgressHistory, eventsProgressHistory };
+}
+
+function createInitialCategoryCount(): Record<ReadinessStatus, number> {
+  const anEnum: any = ReadinessStatus;
+  const record: Partial<Record<ReadinessStatus, number>> = {};
+  for (const key in anEnum) {
+    record[anEnum[key] as ReadinessStatus] = 0;
+  }
+  return record as Record<ReadinessStatus, number>;
+}
+
+export function generateTrackOverviewReport(trackName: string): TrackOverview {
+  const personnelStore = usePersonnelStore();
+  const syllabiStore = useSyllabiStore();
+
+  const personnelInTrack = personnelStore.allPersonnel.filter(
+    (p) => p.assignedPosition === trackName
+  );
+
+  const initialCategoryCount = createInitialCategoryCount();
+
+  if (personnelInTrack.length === 0) {
+    // Return a default/empty state if no personnel are in the track
+    return {
+      trackName,
+      totalPersonnel: 0,
+      personnelCountByLevel: {},
+      personnelCountByCategory: initialCategoryCount,
+      trackHealthScore: 0,
+      priorityStudentsByLevel: {},
+      totalEventsToMeetDeadline: 0,
+      totalPqsToMeetDeadline: 0,
+      nextMonthPriorityEvents: [],
+    };
+  }
+
+  // Calculations
+  const totalPersonnel = personnelInTrack.length;
+
+  const personnelCountByLevel = personnelInTrack.reduce((acc, p) => {
+    const level = p.derivedPqsWorkingLevel || "N/A";
+    acc[level] = (acc[level] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const personnelCountByCategory = personnelInTrack.reduce((acc, p) => {
+    const category = p.readinessAgainstDeadline || ReadinessStatus.Unknown;
+    acc[category] = (acc[category] || 0) + 1;
+    return acc;
+  }, initialCategoryCount);
+
+  const pctOnTrack =
+    (personnelCountByCategory[ReadinessStatus.OnTrack] || 0) / totalPersonnel;
+  const pctAtRisk =
+    (personnelCountByCategory[ReadinessStatus.AtRisk] || 0) / totalPersonnel;
+  const pctBehind =
+    (personnelCountByCategory[ReadinessStatus.BehindSchedule] || 0) /
+    totalPersonnel;
+  const pctBlocked =
+    (personnelCountByCategory[ReadinessStatus.Blocked] || 0) / totalPersonnel;
+
+  const rawHealthScore =
+    1.0 * pctOnTrack + 0.5 * pctAtRisk - 0.75 * pctBehind - 1.5 * pctBlocked;
+  // Scale score from [-1.5, 1] to [0, 100]
+  const trackHealthScore = Math.max(
+    0,
+    Math.min(100, ((rawHealthScore + 1.5) / 2.5) * 100)
+  );
+
+  const priorityStudentsByLevel = personnelInTrack
+    .filter((p) =>
+      [
+        ReadinessStatus.AtRisk,
+        ReadinessStatus.BehindSchedule,
+        ReadinessStatus.Blocked,
+      ].includes(p.readinessAgainstDeadline!)
+    )
+    .sort(
+      (a, b) =>
+        (a.pacingAgainstDeadlineDays ?? 0) - (b.pacingAgainstDeadlineDays ?? 0)
+    )
+    .reduce((acc, p) => {
+      const level = p.derivedPqsWorkingLevel || "N/A";
+      if (!acc[level]) {
+        acc[level] = [];
+      }
+      if (acc[level].length < 5) {
+        acc[level].push(p);
+      }
+      return acc;
+    }, {} as Record<string, Upgrader[]>);
+
+  const totalEventsToMeetDeadline = personnelInTrack.reduce(
+    (sum, p) => sum + (p.eventsToMeetDeadline || 0),
+    0
+  );
+  const totalPqsToMeetDeadline = personnelInTrack.reduce(
+    (sum, p) => sum + (p.pqsToMeetDeadline || 0),
+    0
+  );
+
+  const allPriorityEvents = personnelInTrack.flatMap((p) => {
+    const syllabus = syllabiStore.findSyllabus(
+      p.assignedPosition,
+      p.assignedSyllabusYear
+    );
+    return syllabus ? getPrioritizedRequirements(p, syllabus) : [];
+  });
+
+  const eventFrequency = allPriorityEvents
+    .filter((event) => event.isAvailable)
+    .reduce((acc, event) => {
+      acc[event.name] = (acc[event.name] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+  const uniqueEvents = Array.from(new Set(allPriorityEvents.map((e) => e.name)))
+    .map((name) => allPriorityEvents.find((e) => e.name === name)!)
+    .sort(
+      (a, b) => (eventFrequency[b.name] || 0) - (eventFrequency[a.name] || 0)
+    );
+
+  const nextMonthPriorityEvents = uniqueEvents.slice(0, 10);
+
+  return {
+    trackName,
+    totalPersonnel,
+    personnelCountByLevel,
+    personnelCountByCategory,
+    trackHealthScore,
+    priorityStudentsByLevel,
+    totalEventsToMeetDeadline,
+    totalPqsToMeetDeadline,
+    nextMonthPriorityEvents,
+  };
+}
 
 /**
  * Helper function to resolve the correct syllabus for an upgrader.
@@ -52,54 +254,37 @@ function resolveActiveSyllabus(upgrader: Upgrader): Syllabus | undefined {
 
 /**
  * Generates a detailed report for a single upgrader.
- * @param upgraderId The ID of the upgrader to generate the report for.
- * @returns An `IndividualReport` object, or null if the upgrader or their syllabus can't be found.
  */
 export function generateIndividualReport(
   upgraderId: string
 ): IndividualReport | null {
-  loggingService.logInfo(
-    `${SVC_MODULE} Generating individual report for ID: ${upgraderId}`
-  );
-
   const personnelStore = usePersonnelStore();
+  const syllabiStore = useSyllabiStore();
+
   const upgrader = personnelStore.getPersonnelById(upgraderId);
+  if (!upgrader) return null;
 
-  if (!upgrader) {
-    loggingService.logError(
-      `${SVC_MODULE} Could not find upgrader with ID: ${upgraderId}`
-    );
-    return null;
-  }
-
-  // Use the new helper to get the correct syllabus for this specific upgrader
-  const syllabus = resolveActiveSyllabus(upgrader);
-
-  if (!syllabus) {
-    loggingService.logError(
-      `${SVC_MODULE} Could not find syllabus for upgrader: ${upgrader.displayName}`
-    );
-    return null;
-  }
-
-  const priorityTasks = getPrioritizedRequirements(upgrader, syllabus);
-
-  const report: IndividualReport = {
-    upgrader: upgrader,
-    summary: {
-      readinessAgainstDeadline:
-        upgrader.readinessAgainstDeadline || ReadinessStatus.Unknown,
-      pacingAgainstDeadlineDays: upgrader.pacingAgainstDeadlineDays || 0,
-      projectedCompletionDate:
-        upgrader.projectedTotalCompletionDate || undefined,
-    },
-    priorityTasks: priorityTasks,
-  };
-
-  loggingService.logInfo(
-    `${SVC_MODULE} Successfully generated individual report for ${upgrader.displayName}.`
+  const syllabus = syllabiStore.findSyllabus(
+    upgrader.assignedPosition,
+    upgrader.assignedSyllabusYear
   );
-  return report;
+  if (!syllabus) return null;
+
+  const { pqsProgressHistory, eventsProgressHistory } =
+    calculateProgressHistory(upgrader, syllabus);
+
+  return {
+    upgrader,
+    summary: {
+      readinessAgainstDeadline: upgrader.readinessAgainstDeadline!,
+      pacingAgainstDeadlineDays: upgrader.pacingAgainstDeadlineDays!,
+      projectedCompletionDate: upgrader.projectedTotalCompletionDate,
+    },
+    priorityTasks: getPrioritizedRequirements(upgrader, syllabus),
+    allCompletions: upgrader.allCompletions,
+    pqsProgressHistory,
+    eventsProgressHistory,
+  };
 }
 
 /**

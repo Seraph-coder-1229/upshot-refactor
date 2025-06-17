@@ -189,7 +189,7 @@ const processFile = async (file: File) => {
     } else {
       uiStore.addNotification({
         message: "No valid records found in file. Check column headers.",
-        type: "warn",
+        type: "warning",
         duration: 8000,
       });
     }
@@ -215,7 +215,7 @@ const handleDownloadData = () => {
   } else {
     uiStore.addNotification({
       message: "No personnel data loaded to download.",
-      type: "warn",
+      type: "warning",
     });
   }
 };

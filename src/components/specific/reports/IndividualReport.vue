@@ -41,6 +41,14 @@
           <PrinterIcon class="-ml-0.5 mr-1.5 h-5 w-5" />
           Print to PDF
         </button>
+        <button
+          @click="downloadPdf"
+          type="button"
+          class="ml-3 inline-flex items-center rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-500"
+        >
+          <ArrowDownTrayIcon class="-ml-0.5 mr-1.5 h-5 w-5" />
+          Download PDF
+        </button>
       </div>
     </div>
 
@@ -68,13 +76,62 @@
               <span>{{ stat.name }}</span>
             </dt>
             <dd
-              class="mt-1 text-xl font-semibold tracking-tight text-gray-900"
+              class="mt-1 text-xl font-semibold tracking-tight"
               :class="stat.color"
             >
               {{ stat.value }}
             </dd>
           </div>
+          <div class="rounded-lg bg-gray-50 p-4">
+            <dt class="flex items-center text-sm font-medium text-gray-500">
+              <ExclamationTriangleIcon class="h-5 w-5 text-gray-400 mr-2" />
+              <span>Cost Factor</span>
+            </dt>
+            <dd class="mt-1 text-xl font-semibold tracking-tight text-gray-900">
+              {{ report.upgrader.costFactor ?? "N/A" }}
+            </dd>
+            <p class="text-xs text-gray-500">Higher score = more effort</p>
+          </div>
         </dl>
+
+        <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="rounded-lg bg-gray-50 p-4">
+            <h4 class="font-medium text-gray-700">Items to Meet Deadline</h4>
+            <div class="flex justify-around mt-2">
+              <p>
+                Events:
+                <strong class="text-lg">{{
+                  report.upgrader.eventsToMeetDeadline ?? "N/A"
+                }}</strong>
+              </p>
+              <p>
+                PQS:
+                <strong class="text-lg">{{
+                  report.upgrader.pqsToMeetDeadline ?? "N/A"
+                }}</strong>
+              </p>
+            </div>
+          </div>
+          <div class="rounded-lg bg-gray-50 p-4">
+            <h4 class="font-medium text-gray-700">
+              Items to Meet Ideal Target
+            </h4>
+            <div class="flex justify-around mt-2">
+              <p>
+                Events:
+                <strong class="text-lg">{{
+                  report.upgrader.eventsToMeetIdeal ?? "N/A"
+                }}</strong>
+              </p>
+              <p>
+                PQS:
+                <strong class="text-lg">{{
+                  report.upgrader.pqsToMeetIdeal ?? "N/A"
+                }}</strong>
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="border-t border-gray-200 p-6">
@@ -85,11 +142,11 @@
           class="mt-4 grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-8"
         >
           <ProgressChart
-            :upgrader="report.upgrader"
+            :chart-data="report.pqsProgressHistory"
             :chart-type="RequirementType.PQS"
           />
           <ProgressChart
-            :upgrader="report.upgrader"
+            :chart-data="report.eventsProgressHistory"
             :chart-type="RequirementType.Event"
           />
         </div>
@@ -139,9 +196,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, defineProps, computed } from "vue";
+import { ref, onMounted, computed, defineProps } from "vue";
 import { generateIndividualReport } from "@/core/reportGeneratorService";
-import type { IndividualReport } from "@/types/reportTypes";
+import type { IndividualReport, ProgressDataPoint } from "@/types/reportTypes";
 import { ReadinessStatus } from "@/types/personnelTypes";
 import { RequirementType } from "@/types/syllabiTypes";
 import { formatUtcDateToDisplay } from "@/utils/dateUtils";
@@ -155,7 +212,12 @@ import {
   LockClosedIcon,
   RocketLaunchIcon,
   ChartPieIcon,
+  ArrowDownTrayIcon,
+  ExclamationTriangleIcon,
 } from "@heroicons/vue/24/outline";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
+import Chart from "chart.js/auto";
 
 const props = defineProps<{
   upgraderId: string;
@@ -164,7 +226,9 @@ const props = defineProps<{
 const report = ref<IndividualReport | null>(null);
 
 onMounted(() => {
-  report.value = generateIndividualReport(props.upgraderId);
+  if (props.upgraderId) {
+    // report.value = generateIndividualReport(props.upgraderId);
+  }
 });
 
 const summaryNarrative = computed(() => {
@@ -231,5 +295,162 @@ const readinessColorClass = (status: ReadinessStatus) => {
 
 const handlePrint = () => {
   window.print();
+};
+
+const downloadPdf = async () => {
+  if (!report.value) return;
+
+  const doc = new jsPDF();
+  const upgrader = report.value.upgrader;
+  const today = new Date().toLocaleDateString();
+
+  doc.setFontSize(10);
+  doc.text("UPSHOT", 15, 15);
+  doc.text(
+    "Upgrader Performance Report",
+    doc.internal.pageSize.getWidth() / 2,
+    15,
+    { align: "center" }
+  );
+  doc.text(
+    `Report Generated: ${today}`,
+    doc.internal.pageSize.getWidth() - 15,
+    15,
+    { align: "right" }
+  );
+  doc.line(15, 18, doc.internal.pageSize.getWidth() - 15, 18);
+
+  autoTable(doc, {
+    startY: 25,
+    head: [["Upgrader Identification"]],
+    body: [
+      ["Name", upgrader.displayName],
+      ["Rank", upgrader.rank ?? "N/A"],
+      ["Assigned Position", upgrader.assignedPosition],
+      ["Syllabus Year", upgrader.assignedSyllabusYear],
+      ["Readiness Status", upgrader.readinessAgainstDeadline ?? "Unknown"],
+    ],
+    theme: "striped",
+    headStyles: { fillColor: [41, 128, 185] },
+  });
+
+  autoTable(doc, {
+    startY: (doc as any).lastAutoTable.finalY + 10,
+    head: [["Overall Status"]],
+    body: [
+      [
+        `Pacing (Target Goal): ${
+          upgrader.pacingAgainstTargetDays ?? "N/A"
+        } days`,
+        `Cost Factor: ${upgrader.costFactor ?? "N/A"}`,
+      ],
+      [
+        `Pacing (Deadline): ${
+          upgrader.pacingAgainstDeadlineDays ?? "N/A"
+        } days`,
+        `Projected Completion: ${formatUtcDateToDisplay(
+          upgrader.projectedTotalCompletionDate
+        )}`,
+      ],
+    ],
+    theme: "grid",
+    headStyles: { fillColor: [41, 128, 185] },
+  });
+
+  autoTable(doc, {
+    startY: (doc as any).lastAutoTable.finalY + 10,
+    head: [["Priority Tasks", "Type", "Unlocks"]],
+    body: report.value.priorityTasks
+      .slice(0, 5)
+      .map((task) => [task.displayName, task.type, task.unlocks]),
+    theme: "striped",
+    headStyles: { fillColor: [41, 128, 185] },
+  });
+
+  // Create and add the LINE CHARTS
+  const pqsChartDataUrl = await createChartImage(
+    report.value.pqsProgressHistory,
+    RequirementType.PQS
+  );
+  const eventChartDataUrl = await createChartImage(
+    report.value.eventsProgressHistory,
+    RequirementType.Event
+  );
+
+  doc.addPage();
+  doc.setFontSize(14);
+  doc.text("PQS Progress Graph", 15, 20);
+  doc.addImage(pqsChartDataUrl, "PNG", 15, 25, 180, 80);
+
+  doc.text("Event Progress Graph", 15, 125);
+  doc.addImage(eventChartDataUrl, "PNG", 15, 130, 180, 80);
+
+  // FIX: Cast doc to 'any' to bypass faulty type definition for getNumberOfPages
+  const pageCount = (doc as any).internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.text(
+      "FOR OFFICIAL USE ONLY",
+      doc.internal.pageSize.getWidth() / 2,
+      doc.internal.pageSize.getHeight() - 10,
+      { align: "center" }
+    );
+  }
+
+  doc.save(`${upgrader.displayName}_Report.pdf`);
+};
+
+/**
+ * Creates a line chart image for the PDF.
+ */
+const createChartImage = async (
+  chartData: ProgressDataPoint[],
+  chartType: RequirementType
+): Promise<string> => {
+  const canvas = document.createElement("canvas");
+  canvas.width = 800;
+  canvas.height = 400;
+
+  const title =
+    chartType === RequirementType.PQS
+      ? `${report.value?.upgrader.derivedPqsWorkingLevel} PQS Progress`
+      : `${report.value?.upgrader.derivedPqsWorkingLevel} Event Progress`;
+
+  new Chart(canvas, {
+    type: "line",
+    data: {
+      datasets: [
+        {
+          label: "% Progress",
+          data: chartData,
+          borderColor:
+            chartType === RequirementType.PQS
+              ? "rgb(54, 162, 235)"
+              : "rgb(255, 99, 132)",
+          fill: true,
+          tension: 0.1,
+        },
+      ],
+    },
+    options: {
+      animation: false, // Important for immediate rendering
+      scales: {
+        x: {
+          type: "linear",
+          title: { display: true, text: "Months Since Start Date" },
+        },
+        y: {
+          beginAtZero: true,
+          max: 100,
+          title: { display: true, text: "Progress (%)" },
+        },
+      },
+      plugins: { title: { display: true, text: title } },
+    },
+  });
+
+  // No timeout needed if animation is disabled
+  return canvas.toDataURL("image/png");
 };
 </script>

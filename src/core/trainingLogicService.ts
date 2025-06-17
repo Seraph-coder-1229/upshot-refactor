@@ -615,3 +615,35 @@ export function getPrioritizedUpgraders(
 
   return scoredUpgraders.sort((a, b) => b.priorityScore - a.priorityScore);
 }
+
+export function calculateItemsToMeetMilestones(
+  upgrader: Upgrader,
+  syllabus: Syllabus,
+  appConfig: AppConfig
+): void {
+  const remaining = getRemainingRequirements(upgrader, syllabus);
+  const remainingEvents = remaining.filter(
+    (r) => r.type === RequirementType.Event
+  ).length;
+  const remainingPqs = remaining.filter(
+    (r) => r.type === RequirementType.PQS
+  ).length;
+
+  // Calculate items needed based on progress against deadline
+  upgrader.eventsToMeetDeadline = remainingEvents;
+  upgrader.pqsToMeetDeadline = remainingPqs;
+
+  // Dummy calculation for ideal targets - can be refined
+  // For example, only count items up to the 'target' level from appConfig
+  upgrader.eventsToMeetIdeal = Math.max(0, remainingEvents - 5);
+  upgrader.pqsToMeetIdeal = Math.max(0, remainingPqs - 10);
+
+  // Calculate Cost Factor
+  const pacing = upgrader.pacingAgainstDeadlineDays ?? 0;
+  const remainingTotal = remaining.length;
+  // Formula: Negative pacing is bad, high remaining item count is bad.
+  // Normalize to a 0-100 score. This is a sample heuristic.
+  const pacingCost = pacing < 0 ? Math.min(50, Math.abs(pacing)) : 0; // max 50 points from being behind
+  const workCost = Math.min(50, remainingTotal / 2); // max 50 points from volume of work
+  upgrader.costFactor = Math.round(pacingCost + workCost);
+}

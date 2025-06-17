@@ -1,17 +1,23 @@
 import { ReadinessStatus, Upgrader } from "./personnelTypes";
-import { PrioritizedRequirement, type RequirementType } from "./syllabiTypes";
+import {
+  CompletedItemRecord,
+  PrioritizedRequirement,
+  type RequirementType,
+} from "./syllabiTypes";
+
+export interface ReportSummary {
+  readinessAgainstDeadline: ReadinessStatus;
+  pacingAgainstDeadlineDays: number;
+  projectedCompletionDate?: Date;
+}
 
 export interface IndividualReport {
-  upgrader: Upgrader; // The full, up-to-date upgrader object
-
-  summary: {
-    readinessAgainstDeadline: ReadinessStatus;
-    pacingAgainstDeadlineDays: number;
-    projectedCompletionDate?: Date;
-  };
-
-  // The prioritized "to-do list" from our logic service
+  upgrader: Upgrader;
+  summary: ReportSummary;
   priorityTasks: PrioritizedRequirement[];
+  allCompletions: CompletedItemRecord[];
+  pqsProgressHistory: ProgressDataPoint[];
+  eventsProgressHistory: ProgressDataPoint[];
 }
 
 export interface TrackReport {
@@ -101,4 +107,26 @@ export interface MonthlyReportData {
   reportDate: Date;
   startDate: Date; // The date 30 days ago
   trackSummaries: MonthlyTrackSummary[];
+}
+
+export interface TrackOverview {
+  trackName: string;
+  totalPersonnel: number;
+  personnelCountByLevel: Record<string, number>; // e.g., { "200": 5, "300": 10 }
+  personnelCountByCategory: Record<ReadinessStatus, number>; // e.g., { "On Track": 8, ... }
+  trackHealthScore: number; // Score from 0-100
+  priorityStudentsByLevel: Record<string, Upgrader[]>; // Top 5 at-risk/behind students per level
+  totalEventsToMeetDeadline: number; // Sum of eventsToMeetDeadline for all upgraders
+  totalPqsToMeetDeadline: number; // Sum of pqsToMeetDeadline for all upgraders
+  nextMonthPriorityEvents: PrioritizedRequirement[]; // Top 5-10 upcoming events
+}
+
+/**
+ * Represents a single data point for progress over time.
+ * x: Months since the start date.
+ * y: Cumulative progress percentage at that month.
+ */
+export interface ProgressDataPoint {
+  x: number;
+  y: number;
 }

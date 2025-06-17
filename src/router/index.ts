@@ -27,6 +27,7 @@ import PersonnelUploadView from "../views/PersonnelUploadView.vue";
 import TrainingUploadView from "../views/TrainingUploadView.vue";
 import HelpView from "../views/HelpView.vue";
 import LogsView from "../views/LogsView.vue";
+import PersonnelEditView from "../views/PersonnelEditView.vue";
 
 const routes = [
   { path: "/", name: "Dashboard", component: DashboardView },
@@ -34,6 +35,13 @@ const routes = [
     path: "/personnel-upload",
     name: "PersonnelUpload",
     component: PersonnelUploadView,
+  },
+  {
+    // New Route for editing personnel
+    path: "/personnel/edit/:id",
+    name: "PersonnelEdit",
+    component: PersonnelEditView,
+    props: true,
   },
   {
     path: "/training-upload",

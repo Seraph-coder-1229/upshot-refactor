@@ -27,6 +27,9 @@
           >
             Start Date
           </th>
+          <th scope="col" class="relative px-6 py-3">
+            <span class="sr-only">Actions</span>
+          </th>
         </tr>
       </thead>
       <tbody class="bg-white divide-y divide-gray-200">
@@ -49,6 +52,16 @@
           </td>
           <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
             {{ new Date(upgrader.startDate).toLocaleDateString() }}
+          </td>
+          <td
+            class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium"
+          >
+            <router-link
+              :to="{ name: 'PersonnelEdit', params: { id: upgrader.id } }"
+              class="text-indigo-600 hover:text-indigo-900 hover:underline"
+            >
+              Edit
+            </router-link>
           </td>
         </tr>
       </tbody>

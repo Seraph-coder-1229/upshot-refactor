@@ -8,6 +8,7 @@ import { useSyllabiStore } from "./syllabiStore";
 import { useAppConfigStore } from "./appConfigStore";
 import {
   calculateDerivedWorkingLevels,
+  calculateItemsToMeetMilestones,
   calculatePacing,
   calculateProgressMetrics,
   calculateProjections,
@@ -28,6 +29,31 @@ export const usePersonnelStore = defineStore("personnel", {
       (id: string): Upgrader | undefined => {
         const trimmedId = id ? id.trim() : "";
         return state.allPersonnel.find((p) => p.id.trim() === trimmedId);
+      },
+    /**
+     * New Fuzzy-matching getter to find personnel even with inconsistent IDs.
+     */
+    getPersonnelByFuzzyId:
+      (state) =>
+      (id: string): Upgrader | undefined => {
+        if (!id) return undefined;
+        const trimmedId = id.trim();
+        const lowerCaseId = trimmedId.toLowerCase();
+
+        // 1. Try a direct, case-insensitive match on the correct ID.
+        const directMatch = state.allPersonnel.find(
+          (p) => p.id.trim().toLowerCase() === lowerCaseId
+        );
+        if (directMatch) return directMatch;
+
+        // 2. Fallback: Check for composite keys that might be used in URLs.
+        const fallbackMatch = state.allPersonnel.find((p) => {
+          // e.g., "AWO2 Birch-AAW"
+          const compositeKey = `${p.rank} ${p.name}-${p.assignedPosition}`;
+          return compositeKey.toLowerCase() === lowerCaseId;
+        });
+
+        return fallbackMatch;
       },
     getUpgraderByName:
       (state) =>
@@ -83,6 +109,37 @@ export const usePersonnelStore = defineStore("personnel", {
         (p) => p.id === updatedUpgrader.id
       );
       if (index !== -1) {
+        // Recalculate all metrics upon update to ensure data consistency
+        const syllabiStore = useSyllabiStore();
+        const appConfigStore = useAppConfigStore();
+        const syllabus = syllabiStore.findSyllabus(
+          updatedUpgrader.assignedPosition,
+          updatedUpgrader.assignedSyllabusYear
+        );
+        if (syllabus) {
+          calculateProgressMetrics(updatedUpgrader, syllabus);
+          calculateDerivedWorkingLevels(
+            updatedUpgrader,
+            syllabus,
+            appConfigStore.currentConfig
+          );
+          calculatePacing(
+            updatedUpgrader,
+            syllabus,
+            appConfigStore.currentConfig
+          );
+          calculateProjections(
+            updatedUpgrader,
+            syllabus,
+            appConfigStore.currentConfig
+          );
+          calculateReadiness(updatedUpgrader, syllabus);
+          calculateItemsToMeetMilestones(
+            updatedUpgrader,
+            syllabus,
+            appConfigStore.currentConfig
+          );
+        }
         this.allPersonnel[index] = updatedUpgrader;
       }
     },
@@ -135,7 +192,6 @@ export const usePersonnelStore = defineStore("personnel", {
 
       if (syllabus) {
         // These functions mutate the 'updatedUpgrader' object, adding all calculated fields.
-        // Crucially, calculateProgressMetrics will populate the 'allCompletions' array.
         calculateProgressMetrics(updatedUpgrader, syllabus);
         calculateDerivedWorkingLevels(
           updatedUpgrader,
@@ -153,6 +209,11 @@ export const usePersonnelStore = defineStore("personnel", {
           appConfigStore.currentConfig
         );
         calculateReadiness(updatedUpgrader, syllabus);
+        calculateItemsToMeetMilestones(
+          updatedUpgrader,
+          syllabus,
+          appConfigStore.currentConfig
+        );
 
         // Replace the old object in the store with the fully updated one to ensure reactivity.
         this.updatePersonnel(updatedUpgrader);
