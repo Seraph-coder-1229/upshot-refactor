@@ -29,6 +29,7 @@ export interface Upgrader extends Identifiable, Named {
   displayName: string;
   rank?: string;
   startDate: Date;
+  levelSyllabusYears: Record<number, string>;
 
   // USER-MANAGED GOALS
   assignedPosition: string;
@@ -56,4 +57,12 @@ export interface Upgrader extends Identifiable, Named {
   projectedTotalCompletionDate?: Date;
   readinessAgainstTarget?: ReadinessStatus;
   readinessAgainstDeadline?: ReadinessStatus;
+  finalDeadline?: Date; // The calculated final deadline date
+  idealCompletionDate?: Date; // The calculated ideal completion date
+  pacingAgainstIdealDays?: number; // Pacing against the ideal completion date
+  costFactor?: number; // Overall cost factor (0-100)
+  eventsToMeetDeadline?: number; // Events needed to be on time for deadline
+  pqsToMeetDeadline?: number; // PQS items needed to be on time for deadline
+  eventsToMeetIdeal?: number; // Events needed to be on time for ideal target
+  pqsToMeetIdeal?: number;
 }

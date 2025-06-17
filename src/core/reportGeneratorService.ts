@@ -24,8 +24,31 @@ import { ReadinessStatus, Upgrader } from "@/types/personnelTypes";
 import { anonymizeData } from "@/utils/anonymizer";
 import { addDays } from "date-fns";
 import { getTodayUtc } from "@/utils/dateUtils";
-import { RequirementType } from "@/types/syllabiTypes";
+import { RequirementType, Syllabus } from "@/types/syllabiTypes";
 const SVC_MODULE = "[ReportGenerator]";
+
+/**
+ * Helper function to resolve the correct syllabus for an upgrader.
+ * It checks for a level-specific syllabus first, then falls back to the default.
+ */
+function resolveActiveSyllabus(upgrader: Upgrader): Syllabus | undefined {
+  const syllabiStore = useSyllabiStore();
+  const defaultYear = upgrader.assignedSyllabusYear;
+  let activeYear = defaultYear;
+
+  if (upgrader.levelSyllabusYears && upgrader.derivedPqsWorkingLevel) {
+    const baseLevel =
+      Math.floor(parseInt(upgrader.derivedPqsWorkingLevel) / 100) * 100;
+    if (upgrader.levelSyllabusYears[baseLevel]) {
+      activeYear = upgrader.levelSyllabusYears[baseLevel];
+      loggingService.logInfo(
+        `[ReportGenerator] Using level-specific syllabus ${activeYear} for ${upgrader.displayName}`
+      );
+    }
+  }
+
+  return syllabiStore.findSyllabus(upgrader.assignedPosition, activeYear);
+}
 
 /**
  * Generates a detailed report for a single upgrader.
@@ -40,9 +63,8 @@ export function generateIndividualReport(
   );
 
   const personnelStore = usePersonnelStore();
-  const syllabiStore = useSyllabiStore();
-
   const upgrader = personnelStore.getPersonnelById(upgraderId);
+
   if (!upgrader) {
     loggingService.logError(
       `${SVC_MODULE} Could not find upgrader with ID: ${upgraderId}`
@@ -50,10 +72,9 @@ export function generateIndividualReport(
     return null;
   }
 
-  const syllabus = syllabiStore.findSyllabus(
-    upgrader.assignedPosition,
-    upgrader.assignedSyllabusYear
-  );
+  // Use the new helper to get the correct syllabus for this specific upgrader
+  const syllabus = resolveActiveSyllabus(upgrader);
+
   if (!syllabus) {
     loggingService.logError(
       `${SVC_MODULE} Could not find syllabus for upgrader: ${upgrader.displayName}`
@@ -94,6 +115,8 @@ export function generateTrackReport(
   const personnelStore = usePersonnelStore();
   const syllabiStore = useSyllabiStore();
 
+  // For track-level reports, we use the specified year to get the base syllabus.
+  // Individual variations are handled in their own reports.
   const syllabus = syllabiStore.findSyllabus(position, year);
   if (!syllabus) {
     loggingService.logError(
@@ -106,6 +129,7 @@ export function generateTrackReport(
     (p) => p.assignedPosition === position && p.assignedSyllabusYear === year
   );
 
+  // The prioritized list for the whole track is based on the main track syllabus
   const prioritized = getPrioritizedUpgraders(personnelForTrack, syllabus);
 
   const summaryStats = {

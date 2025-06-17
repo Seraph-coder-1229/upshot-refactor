@@ -4,8 +4,8 @@ import { type Upgrader, ReadinessStatus } from "../types/personnelTypes";
 import {
   type Syllabus,
   type Requirement,
-  RequirementType,
   type PrioritizedRequirement,
+  RequirementType,
 } from "../types/syllabiTypes";
 import { type AppConfig } from "../types/appConfigTypes";
 import { addDays, daysBetween, getTodayUtc } from "../utils/dateUtils";
@@ -14,6 +14,7 @@ import {
   isRequirementWaived,
 } from "./syllabusLogicService";
 
+// No changes to getRemainingRequirements, calculateDerivedWorkingLevels, calculateProgressMetrics
 export function getRemainingRequirements(
   upgrader: Upgrader,
   syllabus: Syllabus
@@ -162,70 +163,222 @@ export function calculateProgressMetrics(
   }
 }
 
-function _calculateTargetPacing(
+/**
+ * Calculates the number of events/PQS items an upgrader needs to complete
+ * to meet their deadline and ideal timelines, separated by type.
+ */
+function _calculateItemsToMeetMilestones(
   upgrader: Upgrader,
-  syllabus: Syllabus,
-  appConfig: AppConfig
-): number {
-  const deltas: number[] = [];
-  const positionSettings =
-    appConfig.positionSettings[upgrader.assignedPosition];
-  if (!positionSettings) return 0;
+  syllabus: Syllabus
+): {
+  eventsToMeetDeadline?: number;
+  pqsToMeetDeadline?: number;
+  eventsToMeetIdeal?: number;
+  pqsToMeetIdeal?: number;
+} {
+  const {
+    startDate,
+    finalDeadline,
+    idealCompletionDate,
+    pacingAgainstDeadlineDays,
+    pacingAgainstIdealDays,
+  } = upgrader;
 
-  for (const completion of upgrader.rawCompletions) {
-    const requirement = syllabus.requirements.find(
-      (r) => r.name.toUpperCase() === completion.event.toUpperCase()
-    );
-    if (!requirement) continue;
-
-    const targetMonths =
-      positionSettings.deadlines[requirement.level]?.targetMonths;
-    if (targetMonths == null) continue;
-
-    const targetDate = addDays(upgrader.startDate, targetMonths * 30.44);
-    const delta = daysBetween(completion.date, targetDate);
-    deltas.push(delta);
+  if (!startDate || !finalDeadline || !idealCompletionDate) {
+    return {};
   }
 
-  if (deltas.length === 0) return 0;
-  return Math.round(deltas.reduce((a, b) => a + b, 0) / deltas.length);
+  const allNonWaived = syllabus.requirements.filter(
+    (r) => !isRequirementWaived(r, upgrader)
+  );
+  const totalEventDifficulty = allNonWaived
+    .filter((r) => r.type === RequirementType.Event)
+    .reduce((sum, r) => sum + (r.difficulty || 1), 0);
+  const totalPqsDifficulty = allNonWaived
+    .filter((r) => r.type === RequirementType.PQS)
+    .reduce((sum, r) => sum + (r.difficulty || 1), 0);
+
+  const deadlineDuration = daysBetween(startDate, finalDeadline);
+  const idealDuration = daysBetween(startDate, idealCompletionDate);
+
+  // Velocity is difficulty points per day
+  const eventVelocityForDeadline =
+    deadlineDuration > 0 ? totalEventDifficulty / deadlineDuration : 0;
+  const pqsVelocityForDeadline =
+    deadlineDuration > 0 ? totalPqsDifficulty / deadlineDuration : 0;
+  const eventVelocityForIdeal =
+    idealDuration > 0 ? totalEventDifficulty / idealDuration : 0;
+  const pqsVelocityForIdeal =
+    idealDuration > 0 ? totalPqsDifficulty / idealDuration : 0;
+
+  let eventsToMeetDeadline: number | undefined = 0;
+  let pqsToMeetDeadline: number | undefined = 0;
+  if (pacingAgainstDeadlineDays && pacingAgainstDeadlineDays < 0) {
+    const days = Math.abs(pacingAgainstDeadlineDays);
+    eventsToMeetDeadline = Math.ceil(days * eventVelocityForDeadline);
+    pqsToMeetDeadline = Math.ceil(days * pqsVelocityForDeadline);
+  }
+
+  let eventsToMeetIdeal: number | undefined = 0;
+  let pqsToMeetIdeal: number | undefined = 0;
+  if (pacingAgainstIdealDays && pacingAgainstIdealDays < 0) {
+    const days = Math.abs(pacingAgainstIdealDays);
+    eventsToMeetIdeal = Math.ceil(days * eventVelocityForIdeal);
+    pqsToMeetIdeal = Math.ceil(days * pqsVelocityForIdeal);
+  }
+
+  return {
+    eventsToMeetDeadline,
+    pqsToMeetDeadline,
+    eventsToMeetIdeal,
+    pqsToMeetIdeal,
+  };
+}
+
+function _calculateIdealPacing(
+  upgrader: Upgrader,
+  syllabus: Syllabus,
+  appConfig: AppConfig,
+  totalNonWaivedDifficulty: number
+): { idealPacing: number | undefined; idealCompletionDate: Date | undefined } {
+  const positionSettings =
+    appConfig.positionSettings[upgrader.assignedPosition];
+  const targetMonths =
+    positionSettings?.deadlines[syllabus.baseLevel]?.targetMonths;
+
+  if (!targetMonths) {
+    return { idealPacing: undefined, idealCompletionDate: undefined };
+  }
+
+  const idealCompletionDate = addDays(upgrader.startDate, targetMonths * 30.44);
+  const totalTimeInDays = daysBetween(upgrader.startDate, idealCompletionDate);
+  const elapsedTimeInDays = daysBetween(upgrader.startDate, getTodayUtc());
+
+  if (totalTimeInDays <= 0 || elapsedTimeInDays < 0) {
+    return { idealPacing: 0, idealCompletionDate };
+  }
+
+  const expectedProgressPercent = Math.min(
+    elapsedTimeInDays / totalTimeInDays,
+    1
+  );
+  const expectedCompletionDifficulty =
+    totalNonWaivedDifficulty * expectedProgressPercent;
+
+  const actualCompletionDifficulty = upgrader.rawCompletions
+    .map((c) =>
+      syllabus.requirements.find(
+        (r) => r.name.toUpperCase() === c.event.toUpperCase()
+      )
+    )
+    .reduce((sum, r) => sum + (r?.difficulty || 1), 0);
+
+  const completionDelta =
+    actualCompletionDifficulty - expectedCompletionDifficulty;
+  const completionRatePerDay =
+    totalTimeInDays > 0 ? totalNonWaivedDifficulty / totalTimeInDays : 0;
+
+  const idealPacing =
+    completionRatePerDay > 0
+      ? Math.round(completionDelta / completionRatePerDay)
+      : 0;
+  return { idealPacing, idealCompletionDate };
+}
+
+/**
+ * Calculates a "cost factor" for an upgrader (0-100).
+ * Higher values indicate more effort is needed to get the upgrader proficient.
+ */
+function _calculateCostFactor(
+  upgrader: Upgrader,
+  syllabus: Syllabus, // Pass syllabus in
+  totalNonWaivedDifficulty: number
+): number | undefined {
+  if (
+    upgrader.pacingAgainstDeadlineDays === undefined ||
+    !upgrader.finalDeadline
+  ) {
+    return undefined;
+  }
+
+  // 1. Pacing Component (40%): How far behind are they?
+  const daysBehind = Math.max(0, -upgrader.pacingAgainstDeadlineDays);
+  const pacingScore = Math.min(daysBehind / 180, 1); // Normalize (capped at 180 days)
+
+  // 2. Workload Component (40%): How much work is left?
+  const completedDifficulty = upgrader.rawCompletions
+    .map((c) =>
+      syllabus.requirements.find(
+        (r) => r.name.toUpperCase() === c.event.toUpperCase()
+      )
+    )
+    .reduce((sum, r) => sum + (r?.difficulty || 1), 0);
+  const remainingDifficulty = totalNonWaivedDifficulty - completedDifficulty;
+  const workloadScore =
+    remainingDifficulty > 0 && totalNonWaivedDifficulty > 0
+      ? remainingDifficulty / totalNonWaivedDifficulty
+      : 0;
+
+  // 3. Timeline Pressure Component (20%): How much time is left?
+  const daysRemaining = daysBetween(new Date(), upgrader.finalDeadline);
+  const timelineScore = 1 - Math.min(Math.max(0, daysRemaining) / (365 * 2), 1);
+
+  const costFactor =
+    (pacingScore * 0.4 + workloadScore * 0.4 + timelineScore * 0.2) * 100;
+  return Math.round(costFactor);
 }
 
 function _calculateDeadlinePacing(
   upgrader: Upgrader,
   syllabus: Syllabus,
   appConfig: AppConfig
-): number {
+): { pacing: number | undefined; finalDeadline: Date | undefined } {
   const positionKey = upgrader.assignedPosition;
   const level = upgrader.derivedPqsWorkingLevel || syllabus.baseLevel;
   const deadlineMonths =
     appConfig.positionSettings[positionKey]?.deadlines[level]?.deadlineMonths ||
     0;
-  if (deadlineMonths === 0) return 0;
+
+  if (deadlineMonths === 0)
+    return { pacing: undefined, finalDeadline: undefined };
 
   let finalDeadline = addDays(upgrader.startDate, deadlineMonths * 30.44);
   if (upgrader.onWaiver) finalDeadline = addDays(finalDeadline, 90);
 
   const totalTimeInDays = daysBetween(upgrader.startDate, finalDeadline);
   const elapsedTimeInDays = daysBetween(upgrader.startDate, getTodayUtc());
-  if (totalTimeInDays <= 0 || elapsedTimeInDays < 0) return 0;
+  if (totalTimeInDays <= 0 || elapsedTimeInDays < 0)
+    return { pacing: 0, finalDeadline };
 
   const expectedProgressPercent = Math.min(
     elapsedTimeInDays / totalTimeInDays,
     1
   );
-  const totalRequirements = syllabus.requirements.filter(
-    (r) => !isRequirementWaived(r, upgrader)
-  ).length;
+
+  const totalRequirements = syllabus.requirements
+    .filter((r) => !isRequirementWaived(r, upgrader))
+    .reduce((sum, r) => sum + (r.difficulty || 1), 1); // Use difficulty
+
   const expectedCompletions = totalRequirements * expectedProgressPercent;
-  const actualCompletions = upgrader.rawCompletions.length;
+
+  const actualCompletions = upgrader.rawCompletions
+    .map((c) =>
+      syllabus.requirements.find(
+        (r) => r.name.toUpperCase() === c.event.toUpperCase()
+      )
+    )
+    .reduce((sum, r) => sum + (r?.difficulty || 1), 0);
+
   const completionDelta = actualCompletions - expectedCompletions;
   const completionRatePerDay =
     totalTimeInDays > 0 ? totalRequirements / totalTimeInDays : 0;
 
-  return completionRatePerDay > 0
-    ? Math.round(completionDelta / completionRatePerDay)
-    : 0;
+  const pacing =
+    completionRatePerDay > 0
+      ? Math.round(completionDelta / completionRatePerDay)
+      : 0;
+
+  return { pacing, finalDeadline };
 }
 
 export function calculatePacing(
@@ -233,16 +386,53 @@ export function calculatePacing(
   syllabus: Syllabus,
   appConfig: AppConfig
 ): void {
-  upgrader.pacingAgainstTargetDays = upgrader.onWaiver
-    ? undefined
-    : _calculateTargetPacing(upgrader, syllabus, appConfig);
-  upgrader.pacingAgainstDeadlineDays = _calculateDeadlinePacing(
+  const totalNonWaivedDifficulty = syllabus.requirements
+    .filter((r) => !isRequirementWaived(r, upgrader))
+    .reduce((sum, r) => sum + (r.difficulty || 1), 0);
+
+  // Calculate Pacing and Deadlines
+  const { idealPacing, idealCompletionDate } = _calculateIdealPacing(
+    upgrader,
+    syllabus,
+    appConfig,
+    totalNonWaivedDifficulty
+  );
+  upgrader.pacingAgainstIdealDays = idealPacing;
+  upgrader.idealCompletionDate = idealCompletionDate;
+
+  const { pacing: deadlinePacing, finalDeadline } = _calculateDeadlinePacing(
     upgrader,
     syllabus,
     appConfig
   );
+  upgrader.pacingAgainstDeadlineDays = deadlinePacing;
+  upgrader.finalDeadline = finalDeadline;
+
+  // Calculate items to meet milestones
+  const {
+    eventsToMeetDeadline,
+    pqsToMeetDeadline,
+    eventsToMeetIdeal,
+    pqsToMeetIdeal,
+  } = _calculateItemsToMeetMilestones(upgrader, syllabus);
+  upgrader.eventsToMeetDeadline = eventsToMeetDeadline;
+  upgrader.pqsToMeetDeadline = pqsToMeetDeadline;
+  upgrader.eventsToMeetIdeal = eventsToMeetIdeal;
+  upgrader.pqsToMeetIdeal = pqsToMeetIdeal;
+
+  // Calculate the cost factor
+  upgrader.costFactor = _calculateCostFactor(
+    upgrader,
+    syllabus,
+    totalNonWaivedDifficulty
+  );
+
+  upgrader.pacingAgainstTargetDays = upgrader.onWaiver
+    ? undefined
+    : idealPacing;
 }
 
+// No changes to calculateProjections, _getReadinessFromPacing, calculateReadiness, getPrioritizedRequirements, getPrioritizedUpgraders
 export function calculateProjections(
   upgrader: Upgrader,
   syllabus: Syllabus,

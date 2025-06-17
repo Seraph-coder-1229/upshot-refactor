@@ -16,6 +16,9 @@ const PERSONNEL_FILE_HEADERS = [
   "Assigned Syllabus Year",
   "Target Qualification Level",
   "On Waiver",
+  "Level 200 Syllabus Year",
+  "Level 300 Syllabus Year",
+  "Level 400 Syllabus Year",
 ];
 
 interface PersonnelExcelRow {
@@ -27,6 +30,10 @@ interface PersonnelExcelRow {
   "Assigned Syllabus Year"?: string;
   "Target Qualification Level"?: number;
   "On Waiver"?: string | boolean;
+  // NEW: Optional row properties
+  "Level 200 Syllabus Year"?: string | number;
+  "Level 300 Syllabus Year"?: string | number;
+  "Level 400 Syllabus Year"?: string | number;
 }
 
 export async function processPersonnelFile(file: File): Promise<Upgrader[]> {
@@ -36,7 +43,10 @@ export async function processPersonnelFile(file: File): Promise<Upgrader[]> {
     const data = await file.arrayBuffer();
     const workbook = XLSX.read(data);
     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-    const jsonData: PersonnelExcelRow[] = XLSX.utils.sheet_to_json(worksheet);
+    // Use `defval` to ensure blank cells are handled gracefully
+    const jsonData: PersonnelExcelRow[] = XLSX.utils.sheet_to_json(worksheet, {
+      defval: "",
+    });
 
     for (const row of jsonData) {
       const sharpName = row["SHARP Name"];
@@ -54,6 +64,18 @@ export async function processPersonnelFile(file: File): Promise<Upgrader[]> {
       const startDate = excelToJsDate_LocalIntent(row["Start Date"]);
       if (!startDate) continue;
 
+      // NEW: Logic to process per-level syllabus years
+      const levelSyllabusYears: Record<number, string> = {};
+      if (row["Level 200 Syllabus Year"]) {
+        levelSyllabusYears[200] = String(row["Level 200 Syllabus Year"]);
+      }
+      if (row["Level 300 Syllabus Year"]) {
+        levelSyllabusYears[300] = String(row["Level 300 Syllabus Year"]);
+      }
+      if (row["Level 400 Syllabus Year"]) {
+        levelSyllabusYears[400] = String(row["Level 400 Syllabus Year"]);
+      }
+
       const upgrader: Upgrader = {
         id: `${sharpName}-${position}`,
         name: sharpName,
@@ -66,6 +88,7 @@ export async function processPersonnelFile(file: File): Promise<Upgrader[]> {
         ),
         targetQualificationLevel: row["Target Qualification Level"] || 200,
         onWaiver: String(row["On Waiver"]).toUpperCase() === "TRUE",
+        levelSyllabusYears, // Add the new property here
         manuallyUnlockedLevels: [],
         rawCompletions: [],
         allCompletions: [],
@@ -90,12 +113,17 @@ export function downloadPersonnelData(personnel: Upgrader[]): void {
     "Start Date": jsDateToExcel(p.startDate),
     "Assigned Position": p.assignedPosition,
     "Assigned Syllabus Year": p.assignedSyllabusYear,
-    "Target Qual Level": p.targetQualificationLevel,
+    "Target Qualification Level": p.targetQualificationLevel,
     "On Waiver": p.onWaiver ? "TRUE" : "FALSE",
+    // NEW: Export the dynamic syllabus years
+    "Level 200 Syllabus Year": p.levelSyllabusYears?.[200] || "",
+    "Level 300 Syllabus Year": p.levelSyllabusYears?.[300] || "",
+    "Level 400 Syllabus Year": p.levelSyllabusYears?.[400] || "",
   }));
   const worksheet = XLSX.utils.json_to_sheet(excelData, {
     header: PERSONNEL_FILE_HEADERS,
   });
+  // ... (rest of the function is unchanged)
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "Personnel");
   const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });

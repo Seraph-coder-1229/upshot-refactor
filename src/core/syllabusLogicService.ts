@@ -47,9 +47,7 @@ export function isRequirementWaived(
     return true;
   }
 
-  // Condition 2: Check for a default syllabus waiver combined with a personal waiver status.
-  // This is a more general waiver condition.
-  if (upgrader.onWaiver && requirement.isDefaultWaived) {
+  if (requirement.isDefaultWaived) {
     return true;
   }
 
