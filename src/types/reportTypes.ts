@@ -2,6 +2,7 @@ import { ReadinessStatus, Upgrader } from "./personnelTypes";
 import {
   CompletedItemRecord,
   PrioritizedRequirement,
+  Requirement,
   type RequirementType,
 } from "./syllabiTypes";
 
@@ -35,6 +36,56 @@ export interface IndividualReport {
   priorityTasks: PrioritizedRequirement[];
   allCompletions: CompletedItemRecord[];
   pqsProgressHistory: ReportGraphLines;
+}
+
+/**
+ * Defines the summary statistics for a single track for the monthly report.
+ * (This existing type is unchanged)
+ */
+export interface MonthlyTrackSummary {
+  trackName: string;
+  totalEnrolled: number;
+  numberBehind: number;
+  eventsCompletedThisMonth: number;
+  pqsCompletedThisMonth: number;
+}
+
+/**
+ * NEW: Defines the structure for the new high-level summary statistics.
+ */
+export interface MonthlySummaryStats {
+  trackHealthPercentage: number;
+  averageCostFactor: number;
+  totalEventsNeededThisMonth: number;
+  totalPqsNeededThisMonth: number;
+  upgradersOnTrack: number;
+  totalUpgraders: number;
+}
+
+/**
+ * NEW: Defines the structure for a prioritized task, including the upgrader's name and score.
+ */
+export interface MonthlyPriorityTask extends Requirement {
+  upgraderName: string;
+  priorityScore: number;
+}
+
+/**
+ * REVISED: The overall structure for the monthly report data is extended
+ * to include the new summary stats and priority task lists.
+ */
+export interface MonthlyReportData {
+  reportDate: Date;
+  startDate: Date; // The date 30 days ago
+  trackSummaries: MonthlyTrackSummary[]; // Existing data is preserved
+
+  // NEW FIELDS
+  summaryStats: MonthlySummaryStats;
+  priorityTasks: {
+    pqs: MonthlyPriorityTask[];
+    boards: MonthlyPriorityTask[];
+    events: MonthlyPriorityTask[];
+  };
 }
 
 export interface TrackReport {
@@ -146,4 +197,23 @@ export interface TrackOverview {
 export interface ProgressDataPoint {
   x: number;
   y: number;
+}
+
+/**
+ * Represents the data packet required by the Track Report PDF generation service.
+ * This data is assembled from the computed properties in TrackReportView.vue.
+ */
+export interface TrackReportPdfData {
+  selectedPosition: string;
+  healthSummary: {
+    total: number;
+    blocked: number;
+    behind: number;
+    atRisk: number;
+    readyForNext: number;
+  };
+  priorityUpgraders: Upgrader[];
+  filteredUpgraders: Upgrader[];
+  // We will omit the chart data for now as generating dynamic charts in a PDF is complex
+  // and can be added later if needed. The tabular data is the highest priority.
 }

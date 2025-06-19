@@ -32,12 +32,6 @@ export interface Syllabus extends Identifiable, Named {
   masterSyllabusIdentifier: string | null;
 }
 
-export interface PrioritizedRequirement extends Requirement {
-  priorityScore: number;
-  isAvailable: boolean;
-  unlocks: number;
-}
-
 /**
  * Represents a completion record that has been successfully
  * resolved against a specific syllabus requirement.

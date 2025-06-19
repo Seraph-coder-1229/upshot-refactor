@@ -23,7 +23,7 @@
         <h1 class="text-2xl font-bold">Track Report</h1>
       </div>
       <button
-        @click="printReport"
+        @click="downloadPdf"
         class="p-2 rounded-full hover:bg-gray-200"
         title="Print Report"
       >
@@ -77,7 +77,7 @@
                 stroke-linecap="round"
                 stroke-linejoin="round"
                 stroke-width="2"
-                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
               />
             </svg>
           </div>
@@ -184,19 +184,34 @@
         <div class="lg:col-span-1">
           <div class="p-4 bg-white rounded-lg shadow-sm">
             <h2 class="text-xl font-semibold mb-3">Top Priority Students</h2>
-            <ul v-if="priorityUpgraders.length > 0" class="space-y-2">
+            <ul v-if="priorityUpgraders.length > 0" class="space-y-3">
               <li
                 v-for="upgrader in priorityUpgraders"
                 :key="upgrader.id"
-                class="flex justify-between items-center p-2 rounded-md"
+                class="p-3 rounded-md border"
                 :class="getReadinessClass(upgrader.readinessAgainstDeadline!)"
               >
-                <span class="font-medium text-sm">{{
-                  upgrader.displayName
-                }}</span>
-                <span class="text-xs font-semibold">{{
-                  getPacingText(upgrader.pacingAgainstDeadlineDays)
-                }}</span>
+                <div class="flex justify-between items-center">
+                  <p class="font-semibold text-sm">
+                    {{ upgrader.displayName }}
+                  </p>
+                  <router-link
+                    :to="{ name: 'StudentDetail', params: { id: upgrader.id } }"
+                    class="text-xs font-medium text-blue-600 hover:underline"
+                  >
+                    View
+                  </router-link>
+                </div>
+                <p class="text-xs mt-1">
+                  Status:
+                  <span class="font-medium">{{
+                    upgrader.readinessAgainstDeadline
+                  }}</span>
+                  | Pacing:
+                  <span class="font-medium">{{
+                    getPacingText(upgrader.pacingAgainstDeadlineDays)
+                  }}</span>
+                </p>
               </li>
             </ul>
             <p v-else class="text-sm text-gray-500">
@@ -260,28 +275,32 @@ import { ref, computed } from "vue";
 import { usePersonnelStore } from "@/stores/personnelStore";
 import { useSyllabiStore } from "@/stores/syllabiStore";
 import TrackLevelChart from "@/components/specific/charts/TrackLevelChart.vue";
-import { RequirementType } from "@/types/syllabiTypes";
+import { RequirementType, Syllabus } from "@/types/syllabiTypes";
 import { type Upgrader, ReadinessStatus } from "@/types/personnelTypes";
 import * as trainingLogicService from "@/core/trainingLogicService";
+import { generateTrackReportPdf } from "@/core/reports/trackReportPDF";
+import { TrackReportPdfData } from "@/types/reportTypes";
 
 const personnelStore = usePersonnelStore();
 const syllabiStore = useSyllabiStore();
 
 const availablePositions = computed(() =>
   Array.from(
-    new Set(personnelStore.allPersonnel.map((u) => u.assignedPosition))
+    new Set(
+      personnelStore.allPersonnel.map((u) => u.assignedPosition).filter(Boolean)
+    )
   )
 );
+
 const selectedPosition = ref(
   availablePositions.value.length > 0 ? availablePositions.value[0] : ""
 );
 
 const filteredUpgraders = computed(() => {
+  if (!selectedPosition.value) return [];
   return personnelStore.allPersonnel.filter((upgrader) => {
     if (upgrader.assignedPosition !== selectedPosition.value) return false;
-    if (!upgrader.rawCompletions?.length) return false;
-    const currentLevel = parseInt(upgrader.derivedPqsWorkingLevel || "0");
-    return currentLevel > 0;
+    return upgrader.rawCompletions?.length > 0;
   });
 });
 
@@ -310,14 +329,25 @@ const healthSummary = computed(() => {
 });
 
 const priorityUpgraders = computed(() => {
-  if (!filteredUpgraders.value.length) return [];
+  if (filteredUpgraders.value.length === 0) return [];
+
+  const firstUpgrader = filteredUpgraders.value[0];
+  if (!firstUpgrader) return [];
+
   const syllabus = syllabiStore.findSyllabus(
-    filteredUpgraders.value[0].assignedPosition,
-    filteredUpgraders.value[0].assignedSyllabusYear
+    selectedPosition.value,
+    firstUpgrader.assignedSyllabusYear
   );
+
   if (!syllabus) return [];
+
   return trainingLogicService
     .getPrioritizedUpgraders(filteredUpgraders.value, syllabus)
+    .filter(
+      (u) =>
+        u.readinessAgainstDeadline === ReadinessStatus.AtRisk ||
+        u.readinessAgainstDeadline === ReadinessStatus.BehindSchedule
+    )
     .slice(0, 3);
 });
 
@@ -336,24 +366,42 @@ const getUpgradersForLevel = (level: number): Upgrader[] => {
   );
 };
 
-const getReadinessClass = (status: ReadinessStatus) => {
-  const classes = {
-    [ReadinessStatus.Blocked]: "bg-gray-200 text-gray-800",
-    [ReadinessStatus.BehindSchedule]: "bg-red-200 text-red-800",
-    [ReadinessStatus.AtRisk]: "bg-yellow-200 text-yellow-800",
-    [ReadinessStatus.ReadyForNextLevel]: "bg-purple-200 text-purple-800",
-    [ReadinessStatus.OnTrack]: "bg-green-200 text-green-800",
+const getReadinessClass = (status: ReadinessStatus): string => {
+  const classes: Record<ReadinessStatus, string> = {
+    [ReadinessStatus.Blocked]: "border-gray-300 bg-gray-100",
+    [ReadinessStatus.BehindSchedule]: "border-red-300 bg-red-50",
+    [ReadinessStatus.AtRisk]: "border-yellow-300 bg-yellow-50",
+    [ReadinessStatus.ReadyForNextLevel]: "border-purple-300 bg-purple-50",
+    [ReadinessStatus.OnTrack]: "border-green-300 bg-green-50",
+    [ReadinessStatus.Unknown]: "border-gray-300 bg-gray-100",
   };
-  return classes[status] || "bg-green-200 text-green-800";
+  return classes[status] || classes[ReadinessStatus.Unknown];
 };
 
-const getPacingText = (pacing?: number) => {
+const getPacingText = (pacing?: number): string => {
   if (pacing === undefined || pacing === null) return "N/A";
   if (pacing >= 0) return `${pacing}d Ahead`;
   return `${Math.abs(pacing)}d Behind`;
 };
 
-const printReport = () => {
-  window.print();
-};
+const syllabus = computed<Syllabus | undefined>(() =>
+  syllabiStore.findSyllabus(
+    selectedPosition.value,
+    filteredUpgraders.value[0]?.assignedSyllabusYear
+  )
+);
+
+async function downloadPdf() {
+  // Ensure the syllabus object exists before generating the PDF
+  if (filteredUpgraders.value.length > 0 && syllabus.value) {
+    const pdfData: TrackReportPdfData = {
+      selectedPosition: selectedPosition.value,
+      healthSummary: healthSummary.value,
+      priorityUpgraders: priorityUpgraders.value,
+      filteredUpgraders: filteredUpgraders.value,
+    };
+    // Pass the syllabus object as the second argument
+    await generateTrackReportPdf(pdfData, syllabus.value);
+  }
+}
 </script>

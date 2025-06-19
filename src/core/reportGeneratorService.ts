@@ -9,6 +9,7 @@ import { useSyllabiStore } from "../stores/syllabiStore";
 import {
   getPrioritizedRequirements,
   getPrioritizedUpgraders,
+  runFullUpgraderCalculation,
 } from "./trainingLogicService";
 import {
   type IndividualReport,
@@ -21,13 +22,15 @@ import {
   ProgressDataPoint,
   ChartDataPoint,
   ReportGraphLines,
+  MonthlyPriorityTask,
+  MonthlySummaryStats,
 } from "../types/reportTypes";
 import { loggingService } from "../utils/loggingService";
 import { ReadinessStatus, Upgrader } from "@/types/personnelTypes";
 import { anonymizeData } from "@/utils/anonymizer";
 import { addDays } from "date-fns";
 import { daysBetween, getTodayUtc } from "@/utils/dateUtils";
-import { RequirementType, Syllabus } from "@/types/syllabiTypes";
+import { Requirement, RequirementType, Syllabus } from "@/types/syllabiTypes";
 import { type PrioritizedRequirement } from "@/types/syllabiTypes";
 import { type TrackOverview } from "@/types/reportTypes";
 import { type LLMAnonymizedEventDetail } from "@/types/reportTypes";
@@ -39,7 +42,7 @@ const SVC_MODULE = "[ReportGenerator]";
 /**
  * Generates the historical progress data points for line charts.
  */
-function calculateProgressHistory(
+export function calculateProgressHistory(
   upgrader: Upgrader,
   syllabus: Syllabus,
   appConfig: AppConfig // Now requires appConfig
@@ -628,20 +631,22 @@ Now, please generate the complete narrative report for the '${positionName}' tra
  * Generates a summary report of all training activity over the last 30 days.
  * @returns A MonthlyReportData object containing aggregated stats for each track.
  */
-export function generateMonthlyReport(): MonthlyReportData {
+export function generateMonthlyReport(): MonthlyReportData | null {
   loggingService.logInfo(`${SVC_MODULE} Generating Monthly Report.`);
 
   const personnelStore = usePersonnelStore();
   const syllabiStore = useSyllabiStore();
+  const appConfigStore = useAppConfigStore();
   const today = getTodayUtc();
   const thirtyDaysAgo = addDays(today, -30);
 
-  // Filter for personnel who have assigned tracks and completion data
   const relevantPersonnel = personnelStore.allPersonnel.filter(
     (p) => p.assignedPosition && p.rawCompletions && p.rawCompletions.length > 0
   );
 
-  // For efficient lookup, create a map of every requirement name to its type
+  if (relevantPersonnel.length === 0 || !appConfigStore.config) return null;
+
+  // --- START: Original Logic (Unchanged) ---
   const requirementTypeMap = new Map<string, RequirementType>();
   syllabiStore.allSyllabi.forEach((syllabus) => {
     syllabus.requirements.forEach((req) => {
@@ -649,7 +654,6 @@ export function generateMonthlyReport(): MonthlyReportData {
     });
   });
 
-  // Group personnel by their assigned track
   const personnelByTrack = relevantPersonnel.reduce((acc, p) => {
     if (!acc[p.assignedPosition]) {
       acc[p.assignedPosition] = [];
@@ -659,22 +663,17 @@ export function generateMonthlyReport(): MonthlyReportData {
   }, {} as Record<string, Upgrader[]>);
 
   const trackSummaries: MonthlyTrackSummary[] = [];
-
   for (const [trackName, members] of Object.entries(personnelByTrack)) {
     let eventsCompletedThisMonth = 0;
     let pqsCompletedThisMonth = 0;
-
     members.forEach((member) => {
       const recentCompletions = member.rawCompletions.filter(
         (c) => new Date(c.date) >= thirtyDaysAgo
       );
       recentCompletions.forEach((completion) => {
         const reqType = requirementTypeMap.get(completion.event.toUpperCase());
-        if (reqType === RequirementType.Event) {
-          eventsCompletedThisMonth++;
-        } else if (reqType === RequirementType.PQS) {
-          pqsCompletedThisMonth++;
-        }
+        if (reqType === RequirementType.Event) eventsCompletedThisMonth++;
+        else if (reqType === RequirementType.PQS) pqsCompletedThisMonth++;
       });
     });
 
@@ -689,12 +688,80 @@ export function generateMonthlyReport(): MonthlyReportData {
     };
     trackSummaries.push(summary);
   }
+  // --- END: Original Logic ---
 
+  // --- START: Corrected Logic for Summary Stats & Priority Tasks ---
+  const summaryStats: MonthlySummaryStats = {
+    trackHealthPercentage: 0,
+    averageCostFactor: 0,
+    totalEventsNeededThisMonth: 0,
+    totalPqsNeededThisMonth: 0,
+    upgradersOnTrack: 0,
+    totalUpgraders: relevantPersonnel.length,
+  };
+
+  let totalCostFactor = 0;
+  const allPriorityTasks: MonthlyPriorityTask[] = [];
+
+  for (const upgrader of relevantPersonnel) {
+    const syllabus = syllabiStore.findSyllabus(
+      upgrader.assignedPosition,
+      upgrader.assignedSyllabusYear
+    );
+    if (!syllabus) continue;
+
+    // CORRECT: Use the comprehensive calculation function to populate the upgrader object.
+    // This function handles readiness, pacing, projections, etc.
+    runFullUpgraderCalculation(upgrader, syllabus, appConfigStore.config);
+
+    // Now we can safely access the calculated properties on the upgrader object
+    if (upgrader.readinessAgainstDeadline === ReadinessStatus.OnTrack) {
+      summaryStats.upgradersOnTrack++;
+    }
+    summaryStats.totalEventsNeededThisMonth += upgrader.eventsToMeetIdeal ?? 0;
+    summaryStats.totalPqsNeededThisMonth += upgrader.pqsToMeetIdeal ?? 0;
+    totalCostFactor += upgrader.costFactor ?? 0;
+
+    // CORRECT: Use the actual function 'getPrioritizedTasks'
+    const tasks = getPrioritizedRequirements(upgrader, syllabus);
+    tasks
+      .filter((task: Requirement) => !task.isDefaultWaived)
+      .forEach((task) => {
+        allPriorityTasks.push({
+          ...task,
+          upgraderName: upgrader.displayName,
+          priorityScore: task.priorityScore,
+        });
+      });
+  }
+
+  // Finalize summary calculations
+  if (summaryStats.totalUpgraders > 0) {
+    summaryStats.trackHealthPercentage =
+      (summaryStats.upgradersOnTrack / summaryStats.totalUpgraders) * 100;
+    summaryStats.averageCostFactor =
+      totalCostFactor / summaryStats.totalUpgraders;
+  }
+
+  // Group and sort tasks
+  const sortedTasks = allPriorityTasks.sort(
+    (a, b) => b.priorityScore - a.priorityScore
+  );
+  const priorityTasks = {
+    pqs: sortedTasks.filter((t) => t.type === RequirementType.PQS),
+    boards: sortedTasks.filter((t) => t.type === RequirementType.Board),
+    events: sortedTasks.filter((t) => t.type === RequirementType.Event),
+  };
+  // --- END: Corrected Logic ---
+
+  // Return the extended data object
   return {
     reportDate: today,
     startDate: thirtyDaysAgo,
     trackSummaries: trackSummaries.sort((a, b) =>
       a.trackName.localeCompare(b.trackName)
-    ), // Sort tracks alphabetically
+    ),
+    summaryStats,
+    priorityTasks,
   };
 }
