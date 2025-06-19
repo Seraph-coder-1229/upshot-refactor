@@ -27,11 +27,11 @@ export function anonymizeData(personnel: Upgrader[]): AnonymizationResult {
     const pseudonym = `Student ${index + 1}`;
 
     // Store the mapping to reverse the process later
-    keyMap.set(pseudonym, person.displayName);
+    keyMap.set(person.displayName, person.displayName);
 
     // Create a deep copy to avoid changing the original object in the store
     const anonymizedPerson = deepClone(person);
-    anonymizedPerson.displayName = pseudonym;
+    anonymizedPerson.displayName = person.displayName;
 
     return anonymizedPerson;
   });
