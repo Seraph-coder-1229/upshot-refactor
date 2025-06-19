@@ -19,6 +19,8 @@ import {
   type MonthlyReportData,
   type MonthlyTrackSummary,
   ProgressDataPoint,
+  ChartDataPoint,
+  ReportGraphLines,
 } from "../types/reportTypes";
 import { loggingService } from "../utils/loggingService";
 import { ReadinessStatus, Upgrader } from "@/types/personnelTypes";
@@ -29,6 +31,9 @@ import { RequirementType, Syllabus } from "@/types/syllabiTypes";
 import { type PrioritizedRequirement } from "@/types/syllabiTypes";
 import { type TrackOverview } from "@/types/reportTypes";
 import { type LLMAnonymizedEventDetail } from "@/types/reportTypes";
+import { AppConfig } from "@/types/appConfigTypes";
+import { useAppConfigStore } from "@/stores/appConfigStore";
+
 const SVC_MODULE = "[ReportGenerator]";
 
 /**
@@ -37,38 +42,56 @@ const SVC_MODULE = "[ReportGenerator]";
 function calculateProgressHistory(
   upgrader: Upgrader,
   syllabus: Syllabus,
-  targetLevel: number // NEW: Explicitly pass the target level
-): {
-  pqsProgressHistory: ProgressDataPoint[];
-  eventsProgressHistory: ProgressDataPoint[];
-} {
-  const pqsHistory: ProgressDataPoint[] = [];
-  const eventsHistory: ProgressDataPoint[] = [];
+  appConfig: AppConfig // Now requires appConfig
+): ReportGraphLines {
+  const pqsProgress: ChartDataPoint[] = [];
+  const eventsProgress: ChartDataPoint[] = [];
+  const targetLine: ChartDataPoint[] = [];
+  const deadlineLine: ChartDataPoint[] = [];
 
   const startDate = new Date(upgrader.startDate);
   const today = new Date();
-  const totalMonths =
+  const totalMonthsElapsed =
     (today.getFullYear() - startDate.getFullYear()) * 12 +
     (today.getMonth() - startDate.getMonth());
 
-  // --- START OF THE FIX ---
-  // Filter the requirements to ONLY include those at or below the target level.
-  const relevantRequirements = syllabus.requirements.filter(
-    (req) => parseInt(req.level, 10) <= targetLevel
-  );
+  const settings = appConfig.positionSettings[upgrader.assignedPosition];
+  const deadlineSetting =
+    settings?.deadlines[upgrader.targetQualificationLevel];
+  const targetMonths = deadlineSetting?.targetMonths ?? 0;
+  const deadlineMonths = deadlineSetting?.deadlineMonths ?? 0;
 
-  // Calculate totals based on the filtered, relevant requirements.
+  // Use a consistent set of labels (months) for all datasets
+  const labels = Array.from({ length: totalMonthsElapsed + 1 }, (_, i) => i);
+
+  // Generate the data for the new Target and Deadline lines
+  const targetData = labels
+    .map((_, i) => (targetMonths > 0 ? (100 / targetMonths) * i : null))
+    .map((val) => (val !== null && val > 100 ? 100 : val));
+  const deadlineData = labels
+    .map((_, i) => (deadlineMonths > 0 ? (100 / deadlineMonths) * i : null))
+    .map((val) => (val !== null && val > 100 ? 100 : val));
+
+  for (let i = 0; i < labels.length; i++) {
+    const month = labels[i];
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    targetLine.push({ x: month, y: targetData[i]! });
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    deadlineLine.push({ x: month, y: deadlineData[i]! });
+  }
+
+  const relevantRequirements = syllabus.requirements.filter(
+    (req) => parseInt(req.level, 10) <= upgrader.targetQualificationLevel
+  );
   const totalPqs = relevantRequirements.filter(
     (r) => r.type === RequirementType.PQS && !r.isDefaultWaived
   ).length;
   const totalEvents = relevantRequirements.filter(
     (r) => r.type === RequirementType.Event && !r.isDefaultWaived
   ).length;
-  // --- END OF THE FIX ---
 
-  for (let month = 0; month <= totalMonths; month++) {
+  for (const month of labels) {
     const currentDate = addDays(startDate, month * 30.44);
-
     const completionsByThisMonth = upgrader.allCompletions.filter(
       (c) => c.isActualCompletion && new Date(c.completionDate) <= currentDate
     );
@@ -76,15 +99,15 @@ function calculateProgressHistory(
     const pqsCompleted = completionsByThisMonth.filter(
       (c) => c.requirementType === RequirementType.PQS
     ).length;
+    if (totalPqs > 0) {
+      pqsProgress.push({ x: month, y: (pqsCompleted / totalPqs) * 100 });
+    }
+
     const eventsCompleted = completionsByThisMonth.filter(
       (c) => c.requirementType === RequirementType.Event
     ).length;
-
-    if (totalPqs > 0) {
-      pqsHistory.push({ x: month, y: (pqsCompleted / totalPqs) * 100 });
-    }
     if (totalEvents > 0) {
-      eventsHistory.push({
+      eventsProgress.push({
         x: month,
         y: (eventsCompleted / totalEvents) * 100,
       });
@@ -92,8 +115,16 @@ function calculateProgressHistory(
   }
 
   return {
-    pqsProgressHistory: pqsHistory,
-    eventsProgressHistory: eventsHistory,
+    pqsHistory: {
+      progress: pqsProgress,
+      target: targetLine,
+      deadline: deadlineLine,
+    },
+    eventsHistory: {
+      progress: eventsProgress,
+      target: targetLine,
+      deadline: deadlineLine,
+    },
   };
 }
 
@@ -263,6 +294,7 @@ export function generateIndividualReport(
 ): IndividualReport | null {
   const personnelStore = usePersonnelStore();
   const syllabiStore = useSyllabiStore();
+  const appConfigStore = useAppConfigStore();
 
   const upgrader = personnelStore.getPersonnelById(upgraderId);
   if (!upgrader) {
@@ -297,12 +329,15 @@ export function generateIndividualReport(
 
   // Now, use the new `scopedSyllabus` for all report calculations.
   const priorityTasks = getPrioritizedRequirements(upgrader, scopedSyllabus);
-  const { pqsProgressHistory, eventsProgressHistory } =
-    calculateProgressHistory(
-      upgrader,
-      scopedSyllabus,
-      upgrader.targetQualificationLevel
-    );
+  const { pqsHistory, eventsHistory } = calculateProgressHistory(
+    upgrader,
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    syllabiStore.findSyllabus(
+      upgrader.assignedPosition,
+      upgrader.assignedSyllabusYear
+    )!, // Use full syllabus for history
+    appConfigStore.config // Pass the config object
+  );
 
   const report: IndividualReport = {
     upgrader,
@@ -314,8 +349,7 @@ export function generateIndividualReport(
     },
     priorityTasks,
     allCompletions: upgrader.allCompletions,
-    pqsProgressHistory,
-    eventsProgressHistory,
+    pqsProgressHistory: { pqsHistory, eventsHistory },
   };
 
   return report;

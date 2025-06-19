@@ -34,14 +34,6 @@
           Back to List
         </router-link>
         <button
-          @click="handlePrint"
-          type="button"
-          class="ml-3 inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
-        >
-          <PrinterIcon class="-ml-0.5 mr-1.5 h-5 w-5" />
-          Print to PDF
-        </button>
-        <button
           @click="downloadPdf"
           type="button"
           class="ml-3 inline-flex items-center rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-500"
@@ -66,6 +58,20 @@
         <dl
           class="mt-6 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4"
         >
+          <div class="rounded-lg bg-gray-50 p-4">
+            <dt class="flex items-center text-sm font-medium text-gray-500">
+              <CalendarDateRangeIcon class="h-5 w-5 text-gray-400 mr-2" />
+              <span>Month:</span>
+            </dt>
+            <dd class="mt-1 text-xl font-semibold tracking-tight text-gray-900">
+              {{
+                (
+                  daysBetween(report.upgrader.startDate, new Date()) / 30.44
+                ).toFixed(1)
+              }}
+            </dd>
+            <p class="text-xs text-gray-500"></p>
+          </div>
           <div
             v-for="stat in summaryStats"
             :key="stat.name"
@@ -139,15 +145,19 @@
           Level Progression
         </h3>
         <div
-          class="mt-4 grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-8"
+          class="mt-4 grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-8 h-64"
         >
           <ProgressChart
-            :chart-data="report.pqsProgressHistory"
             :chart-type="RequirementType.PQS"
+            :progress-data="report.pqsProgressHistory.pqsHistory.progress"
+            :target-data="report.pqsProgressHistory.pqsHistory.target"
+            :deadline-data="report.pqsProgressHistory.pqsHistory.deadline"
           />
           <ProgressChart
-            :chart-data="report.eventsProgressHistory"
             :chart-type="RequirementType.Event"
+            :progress-data="report.pqsProgressHistory.eventsHistory.progress"
+            :target-data="report.pqsProgressHistory.eventsHistory.target"
+            :deadline-data="report.pqsProgressHistory.eventsHistory.deadline"
           />
         </div>
       </div>
@@ -201,29 +211,25 @@ import { generateIndividualReport } from "@/core/reportGeneratorService";
 import type { IndividualReport, ProgressDataPoint } from "@/types/reportTypes";
 import { ReadinessStatus } from "@/types/personnelTypes";
 import { RequirementType } from "@/types/syllabiTypes";
-import { formatUtcDateToDisplay } from "@/utils/dateUtils";
+import { daysBetween, formatUtcDateToDisplay } from "@/utils/dateUtils";
 import ProgressChart from "../charts/ProgressChart.vue";
 import {
   ArrowLeftIcon,
   PrinterIcon,
-  ScaleIcon,
-  ClockIcon,
   CheckCircleIcon,
   LockClosedIcon,
-  RocketLaunchIcon,
-  ChartPieIcon,
   ArrowDownTrayIcon,
   ExclamationTriangleIcon,
+  CalendarDateRangeIcon,
 } from "@heroicons/vue/24/outline";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
-import Chart from "chart.js/auto";
+import { useIndividualReport } from "@/composables/useIndividualReport";
 
 const props = defineProps<{
   upgraderId: string;
 }>();
 
-const report = ref<IndividualReport | null>(null);
+const { report, isLoading, summaryNarrative, summaryStats, downloadPdf } =
+  useIndividualReport(props.upgraderId);
 
 onMounted(() => {
   if (props.upgraderId) {
@@ -232,245 +238,4 @@ onMounted(() => {
     console.log("Report data:", report.value);
   }
 });
-
-const summaryNarrative = computed(() => {
-  if (!report.value) return "";
-  const { upgrader, summary } = report.value;
-  const pacing = summary.pacingAgainstDeadlineDays;
-  const pacingText =
-    pacing >= 0 ? `${pacing} days ahead of` : `${Math.abs(pacing)} days behind`;
-  return `${upgrader.displayName} is currently rated as ${summary.readinessAgainstDeadline}. They are pacing ${pacingText} schedule to meet their deadline.`;
-});
-
-const summaryStats = computed(() => {
-  if (!report.value) return [];
-  const { summary, upgrader } = report.value;
-  return [
-    {
-      name: "Readiness Status",
-      value: summary.readinessAgainstDeadline,
-      icon: ScaleIcon,
-      color: readinessColorClass(summary.readinessAgainstDeadline),
-    },
-    {
-      name: "Pacing (Deadline)",
-      value: `${summary.pacingAgainstDeadlineDays ?? "N/A"} days`,
-      icon: ClockIcon,
-      color:
-        (summary.pacingAgainstDeadlineDays ?? 0) < 0
-          ? "text-red-600"
-          : "text-green-600",
-    },
-    {
-      name: "Projected Completion",
-      value: formatUtcDateToDisplay(summary.projectedCompletionDate),
-      icon: RocketLaunchIcon,
-      color: "text-gray-900",
-    },
-    {
-      name: "Overall Progress",
-      value: `${(
-        ((upgrader.pqsProgressPercentage ?? 0) +
-          (upgrader.eventsProgressPercentage ?? 0)) /
-        2
-      ).toFixed(0)}%`,
-      icon: ChartPieIcon,
-      color: "text-gray-900",
-    },
-  ];
-});
-
-const readinessColorClass = (status: ReadinessStatus) => {
-  switch (status) {
-    case ReadinessStatus.OnTrack:
-      return "text-green-600 font-semibold";
-    case ReadinessStatus.AtRisk:
-      return "text-yellow-600 font-semibold";
-    case ReadinessStatus.BehindSchedule:
-      return "text-red-600 font-semibold";
-    case ReadinessStatus.Blocked:
-      return "text-red-800 font-bold";
-    default:
-      return "text-gray-900 font-semibold";
-  }
-};
-
-const handlePrint = () => {
-  window.print();
-};
-
-const downloadPdf = async () => {
-  if (!report.value) return;
-
-  const doc = new jsPDF();
-  const upgrader = report.value.upgrader;
-  const today = new Date().toLocaleDateString();
-
-  doc.setFontSize(10);
-  doc.text("UPSHOT", 15, 15);
-  doc.text(
-    "Upgrader Performance Report",
-    doc.internal.pageSize.getWidth() / 2,
-    15,
-    { align: "center" }
-  );
-  doc.text(
-    `Report Generated: ${today}`,
-    doc.internal.pageSize.getWidth() - 15,
-    15,
-    { align: "right" }
-  );
-  doc.line(15, 18, doc.internal.pageSize.getWidth() - 15, 18);
-
-  doc.setFontSize(12);
-  doc.setFont(undefined, "bold");
-  doc.text("Upgrader", 15, 30);
-
-  // 2. Create the table without the confusing 'head' option.
-  autoTable(doc, {
-    startY: 34, // Start the table just below the new title
-    body: [
-      ["Name", upgrader.displayName],
-      ["Rank", upgrader.rank ?? "N/A"],
-      ["Assigned Position", upgrader.assignedPosition],
-      ["Syllabus Year", upgrader.assignedSyllabusYear],
-      ["Readiness Status", upgrader.readinessAgainstDeadline ?? "Unknown"],
-    ],
-    theme: "plain", // 'plain' is often better for key-value tables
-    columnStyles: {
-      0: { fontStyle: "bold", cellWidth: 50 }, // Style for the 'Label' column
-      1: { cellWidth: "auto" }, // Style for the 'Value' column
-    },
-  });
-
-  autoTable(doc, {
-    startY: (doc as any).lastAutoTable.finalY + 10,
-    head: [["Overall Status"]],
-    body: [
-      [
-        `Pacing (Target Goal): ${
-          upgrader.pacingAgainstTargetDays ?? "N/A"
-        } days`,
-        `Cost Factor: ${upgrader.costFactor ?? "N/A"}`,
-      ],
-      [
-        `Pacing (Deadline): ${
-          upgrader.pacingAgainstDeadlineDays ?? "N/A"
-        } days`,
-        `Projected Completion: ${formatUtcDateToDisplay(
-          upgrader.projectedTotalCompletionDate
-        )}`,
-      ],
-    ],
-    theme: "grid",
-    headStyles: { fillColor: [41, 128, 185] },
-  });
-
-  autoTable(doc, {
-    startY: (doc as any).lastAutoTable.finalY + 10,
-    head: [["Priority Tasks", "Type", "Unlocks"]],
-    body: report.value.priorityTasks
-      .slice(0, 5)
-      .map((task) => [task.displayName, task.type, task.unlocks]),
-    theme: "striped",
-    headStyles: { fillColor: [41, 128, 185] },
-  });
-
-  // Create and add the LINE CHARTS
-  const pqsChartDataUrl = await createChartImage(
-    report.value.pqsProgressHistory,
-    RequirementType.PQS
-  );
-  const eventChartDataUrl = await createChartImage(
-    report.value.eventsProgressHistory,
-    RequirementType.Event
-  );
-
-  doc.addPage();
-  doc.setFontSize(14);
-  doc.text("PQS Progress Graph", 15, 20);
-  doc.addImage(pqsChartDataUrl, "PNG", 15, 25, 180, 80);
-
-  doc.text("Event Progress Graph", 15, 125);
-  doc.addImage(eventChartDataUrl, "PNG", 15, 130, 180, 80);
-
-  // FIX: Cast doc to 'any' to bypass faulty type definition for getNumberOfPages
-  const pageCount = (doc as any).internal.getNumberOfPages();
-  for (let i = 1; i <= pageCount; i++) {
-    doc.setPage(i);
-    doc.setFontSize(8);
-    doc.text(
-      "FOR OFFICIAL USE ONLY",
-      doc.internal.pageSize.getWidth() / 2,
-      doc.internal.pageSize.getHeight() - 10,
-      { align: "center" }
-    );
-  }
-
-  doc.save(`${upgrader.displayName}_Report.pdf`);
-};
-
-/**
- * Creates a line chart image for the PDF.
- * This version waits for the browser to paint the chart before resolving.
- */
-const createChartImage = (
-  chartData: ProgressDataPoint[],
-  chartType: RequirementType
-): Promise<string> => {
-  return new Promise((resolve) => {
-    const canvas = document.createElement("canvas");
-    // It can be helpful to render the canvas off-screen
-    canvas.style.display = "none";
-    document.body.appendChild(canvas);
-
-    canvas.width = 800;
-    canvas.height = 400;
-
-    const title =
-      chartType === RequirementType.PQS
-        ? `${report.value?.upgrader.derivedPqsWorkingLevel} PQS Progress`
-        : `${report.value?.upgrader.derivedEventsWorkingLevel} Event Progress`;
-
-    new Chart(canvas, {
-      type: "line",
-      data: {
-        datasets: [
-          {
-            label: "% Progress",
-            data: chartData,
-            borderColor:
-              chartType === RequirementType.PQS
-                ? "rgb(54, 162, 235)"
-                : "rgb(255, 99, 132)",
-            fill: true,
-            tension: 0.1,
-          },
-        ],
-      },
-      options: {
-        animation: false, // Keep animation off for speed
-        scales: {
-          x: {
-            type: "linear",
-            title: { display: true, text: "Months Since Start Date" },
-          },
-          y: {
-            beginAtZero: true,
-            max: 100,
-            title: { display: true, text: "Progress (%)" },
-          },
-        },
-        plugins: { title: { display: true, text: title } },
-      },
-    });
-
-    // Use requestAnimationFrame to wait for the next repaint, ensuring the chart is drawn.
-    requestAnimationFrame(() => {
-      resolve(canvas.toDataURL("image/png"));
-      // Clean up the canvas from the DOM
-      document.body.removeChild(canvas);
-    });
-  });
-};
 </script>

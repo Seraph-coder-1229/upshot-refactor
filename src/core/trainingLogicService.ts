@@ -173,7 +173,7 @@ export function calculateDerivedWorkingLevels(
   upgrader.derivedEventsWorkingLevel = finalWorkingLevel;
 }
 
-function calculateProgressMetrics(
+export function calculateProgressMetrics(
   upgrader: Upgrader,
   syllabus: Syllabus,
   appConfig: AppConfig
@@ -252,21 +252,33 @@ function calculateProgressMetrics(
       upgrader.projectedTotalCompletionDate
     );
   }
-
-  // --- Percentage calculations remain the same ---
+  const targetLevel = upgrader.targetQualificationLevel;
   const relevantRequirements = syllabus.requirements.filter(
-    (req) => parseInt(req.level, 10) <= upgrader.targetQualificationLevel
+    (req) => parseInt(req.level, 10) <= targetLevel
   );
-  const pqsItems = relevantRequirements.filter(
-    (r) => r.type === RequirementType.PQS && !r.isDefaultWaived
-  ).length;
-  const eventItems = relevantRequirements.filter(
-    (r) => r.type === RequirementType.Event && !r.isDefaultWaived
-  ).length;
+
+  // --- START OF PERCENTAGE FIX ---
+  // Create a Set of relevant requirement IDs for efficient lookup.
+  const relevantPqsIds = new Set(
+    relevantRequirements
+      .filter((r) => r.type === RequirementType.PQS && !r.isDefaultWaived)
+      .map((r) => r.id)
+  );
+  const relevantEventIds = new Set(
+    relevantRequirements
+      .filter((r) => r.type === RequirementType.Event && !r.isDefaultWaived)
+      .map((r) => r.id)
+  );
+
+  const pqsItems = relevantPqsIds.size;
+  const eventItems = relevantEventIds.size;
 
   if (pqsItems > 0) {
+    // Only count completions that are in the relevant set.
     const pqsCompleted = completions.filter(
-      (c) => c.requirementType === RequirementType.PQS
+      (c) =>
+        c.requirementType === RequirementType.PQS &&
+        relevantPqsIds.has(c.requirementId)
     ).length;
     upgrader.pqsProgressPercentage = (pqsCompleted / pqsItems) * 100;
   } else {
@@ -274,8 +286,11 @@ function calculateProgressMetrics(
   }
 
   if (eventItems > 0) {
+    // Only count completions that are in the relevant set.
     const eventsCompleted = completions.filter(
-      (c) => c.requirementType === RequirementType.Event
+      (c) =>
+        c.requirementType === RequirementType.Event &&
+        relevantEventIds.has(c.requirementId)
     ).length;
     upgrader.eventsProgressPercentage = (eventsCompleted / eventItems) * 100;
   } else {
@@ -795,12 +810,18 @@ export function runFullUpgraderCalculation(
   // Step 2: Calculate the derived working levels for the upgrader.
   calculateDerivedWorkingLevels(upgrader, syllabus, appConfig);
 
-  // Step 3: Calculate core progress metrics like percentages and dates.
-
-  calculatePacing(upgrader, syllabus, appConfig);
-  calculateReadiness(upgrader, syllabus);
-  calculateProjections(upgrader, syllabus, appConfig);
+  // Step 3: Calculate the progress percentages.
   calculateProgressMetrics(upgrader, syllabus, appConfig);
-  // Step 4: Calculate "what's next" metrics.
+
+  // Step 4: Calculate the projected completion date.
+  calculateProjections(upgrader, syllabus, appConfig);
+
+  // Step 5: Now that we have a projection, we can calculate pacing.
+  calculatePacing(upgrader, syllabus, appConfig);
+
+  // Step 6: Now that we have pacing, we can determine readiness.
+  calculateReadiness(upgrader, syllabus);
+
+  // Step 7: Calculate 'what's next' metrics.
   calculateItemsToMeetMilestones(upgrader, syllabus, appConfig);
 }

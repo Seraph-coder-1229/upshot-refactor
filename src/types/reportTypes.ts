@@ -11,13 +11,30 @@ export interface ReportSummary {
   projectedCompletionDate?: Date;
 }
 
+export interface ChartDataPoint {
+  x: number;
+  y: number;
+}
+
+export interface ReportGraphLines {
+  pqsHistory: {
+    progress: ChartDataPoint[];
+    target: ChartDataPoint[];
+    deadline: ChartDataPoint[];
+  };
+  eventsHistory: {
+    progress: ChartDataPoint[];
+    target: ChartDataPoint[];
+    deadline: ChartDataPoint[];
+  };
+}
+
 export interface IndividualReport {
   upgrader: Upgrader;
   summary: ReportSummary;
   priorityTasks: PrioritizedRequirement[];
   allCompletions: CompletedItemRecord[];
-  pqsProgressHistory: ProgressDataPoint[];
-  eventsProgressHistory: ProgressDataPoint[];
+  pqsProgressHistory: ReportGraphLines;
 }
 
 export interface TrackReport {
