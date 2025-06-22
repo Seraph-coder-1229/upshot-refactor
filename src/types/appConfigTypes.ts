@@ -11,6 +11,11 @@ export interface StatusColorThemeValue {
   foreground: string;
 }
 
+export interface ReportColorTheme {
+  primary: string;
+  secondary: string;
+  accent: string;
+}
 export interface ColorScheme {
   primary: ColorThemeValue;
   secondary: ColorThemeValue;
@@ -52,6 +57,7 @@ export interface AppConfig {
 
   trainingDepartment: TrainingDepartmentPersonnelSetting;
   colorScheme: ColorScheme;
+  reportColors?: ReportColorTheme;
 }
 
 // ==> This is the crucial part for making it known globally <==

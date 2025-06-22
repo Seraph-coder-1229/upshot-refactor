@@ -112,7 +112,7 @@ function _createTrackLevelChartImage(
         scales: {
           x: {
             type: "linear",
-            title: { display: true, text: "Days In Training" },
+            title: { display: true, text: "Months In Training" },
             min: 0,
           },
           y: {
@@ -139,15 +139,26 @@ export async function generateTrackReportPdf(
 ): Promise<void> {
   const doc = new jsPDF();
   const reportDate = formatUtcDateToDisplay(new Date());
+  const appConfig = useAppConfigStore().config;
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 15; // Margin from the left edge
+  const startingY = 22; // Starting Y position for content
+  const elementPadding = 8; // Padding for elements
+  let currentY = startingY;
 
   // --- Page 1: Summary Tables ---
   doc.setFontSize(18);
-  doc.text(`Track Report: ${data.selectedPosition}`, 14, 22);
+  doc.text(`Track Report: ${data.selectedPosition}`, 14, currentY);
   doc.setFontSize(11);
-  doc.text(`Generated on: ${reportDate}`, 14, 30);
+  doc.text(`Generated on: ${reportDate}`, pageWidth - margin, currentY, {
+    align: "right",
+  });
+
+  currentY += elementPadding;
 
   autoTable(doc, {
-    startY: 40,
+    startY: currentY,
     head: [["Track Health Summary", "Count"]],
     body: [
       ["Total Upgraders", data.healthSummary.total],
@@ -157,15 +168,16 @@ export async function generateTrackReportPdf(
       ["Ready for Next Level", data.healthSummary.readyForNext],
     ],
     theme: "grid",
+    headStyles: { fillColor: appConfig.reportColors?.primary || "#808080" },
   });
 
-  const startY = (doc as any).lastAutoTable.finalY + 10;
+  currentY = (doc as any).lastAutoTable.finalY + elementPadding; // Update currentY to the end of the table
 
   if (data.priorityUpgraders.length > 0) {
     doc.setFontSize(12);
-    doc.text("Top Priority Students", 14, startY);
+    doc.text("Priority Students", 14, currentY);
     autoTable(doc, {
-      startY: startY + 2,
+      startY: currentY + 2,
       head: [["Upgrader", "Status", "Pacing (Days)"]],
       body: data.priorityUpgraders.map((u) => [
         u.displayName,
@@ -173,7 +185,7 @@ export async function generateTrackReportPdf(
         u.pacingAgainstDeadlineDays ?? "N/A",
       ]),
       theme: "striped",
-      headStyles: { fillColor: [41, 128, 185] },
+      headStyles: { fillColor: appConfig.reportColors?.primary || "#808080" },
     });
   }
 
