@@ -825,3 +825,85 @@ export function runFullUpgraderCalculation(
   // Step 7: Calculate 'what's next' metrics.
   calculateItemsToMeetMilestones(upgrader, syllabus, appConfig);
 }
+
+// src/core/trainingLogicService.ts
+
+import type { Requirement, Syllabus, CompletionStatus } from '@/types/syllabiTypes';
+import type { CompletionRecord } from '@/types/progressTypes';
+import type { Personnel } from '@/types/personnelTypes';
+import { syllabusLogicService } from '@/core/syllabusLogicService';
+
+// =========================================================================
+// NOTE FOR DEV TEAM:
+// The primary change here is the removal of all `import { useProgressStore } ...`
+// statements. All functions that need access to completion data now receive
+// it as a function argument (`completionRecords: CompletionRecord[]`).
+// This makes the service stateless and testable.
+// =========================================================================
+
+
+/**
+ * Determines the completion status of a single requirement for a given person
+ * based on the provided completion records.
+ *
+ * @param {Requirement} requirement - The requirement to check.
+ * @param {Personnel} personnel - The person to check for.
+ * @param {CompletionRecord[]} completionRecords - The pool of completion records to search within.
+ * @returns {CompletionStatus} The calculated status of the requirement.
+ */
+const getCompletionStatusForRequirement = (
+  requirement: Requirement,
+  personnel: Personnel,
+  completionRecords: CompletionRecord[]
+): CompletionStatus => {
+  const matchingCompletions = completionRecords.filter(
+    record => record.name === requirement.name && record.student === personnel.name
+  );
+
+  if (matchingCompletions.length > 0) {
+    // Logic to determine if it's complete, partial, etc.
+    return 'Complete';
+  }
+
+  // More sophisticated logic can be added here for prerequisites, etc.
+  
+  return 'Not Started';
+};
+
+/**
+ * Calculates the overall progress of a person for a given syllabus.
+ *
+ * @param {Personnel} personnel - The person to calculate progress for.
+ * @param {Syllabus} syllabus - The syllabus to calculate progress against.
+ * @param {CompletionRecord[]} completionRecords - The relevant set of completion records.
+ * @returns {{ complete: number; total: number; percentage: number }} An object with progress stats.
+ */
+const getSyllabusProgressForPersonnel = (
+  personnel: Personnel,
+  syllabus: Syllabus,
+  completionRecords: CompletionRecord[]
+) => {
+  const requirements = syllabus.requirements;
+  let completedCount = 0;
+
+  requirements.forEach(req => {
+    const status = getCompletionStatusForRequirement(req, personnel, completionRecords);
+    if (status === 'Complete') {
+      completedCount++;
+    }
+  });
+
+  const total = requirements.length;
+  return {
+    complete: completedCount,
+    total: total,
+    percentage: total > 0 ? Math.round((completedCount / total) * 100) : 0,
+  };
+};
+
+
+export const trainingLogicService = {
+  getCompletionStatusForRequirement,
+  getSyllabusProgressForPersonnel,
+  // ... other logic functions would be included here
+};

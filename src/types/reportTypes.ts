@@ -6,6 +6,53 @@ import {
   type RequirementType,
 } from "./syllabiTypes";
 
+// src/types/importReportTypes.ts
+
+/**
+ * Defines the structure for reports summarizing the results of a data import session.
+ */
+
+/**
+ * @interface ImportReport
+ * Contains a summary of the data processing that occurred during an import.
+ */
+export interface ImportReport {
+  /**
+   * The name of the file(s) that were processed.
+   * @type {string[]}
+   */
+  fileNames: string[];
+
+  /**
+   * The total number of personnel records identified in the source file(s).
+   * @type {number}
+   */
+  personnelFound: number;
+
+  /**
+   * The total number of individual training completion records processed.
+   * @type {number}
+   */
+  recordsProcessed: number;
+
+  /**
+   * The number of personnel from the import who were successfully matched
+   * to an existing syllabus in the application.
+   * @type {number}
+   */
+  matchedPersonnel: number;
+
+  /**
+   * The date when the report was generated from Sharp.
+   * @type {Date}
+   */
+  reportDate: Date;
+  /**
+   * The track the report is associated with.
+   * @type {string}
+   */
+  track: string;
+}
 export interface ReportSummary {
   readinessAgainstDeadline: ReadinessStatus;
   pacingAgainstDeadlineDays: number;

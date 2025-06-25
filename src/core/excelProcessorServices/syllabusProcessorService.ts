@@ -267,3 +267,44 @@ export async function excelSyllabusProcessorService(
     return [];
   }
 }
+
+// src/core/syllabusLogicService.ts
+
+import type { Personnel } from '@/types/personnelTypes';
+import type { Requirement, Syllabus } from '@/types/syllabiTypes';
+
+// =========================================================================
+// NOTE FOR DEV TEAM:
+// Like the trainingLogicService, this service is now stateless. We have
+// removed all `import { useSyllabiStore } ...` and `import { usePersonnelStore } ...`
+// statements. Functions receive the data they need to operate on as arguments.
+// =========================================================================
+
+/**
+ * Finds the specific syllabus that applies to a given person based on their track.
+ *
+ * @param {Personnel} personnel - The personnel record.
+ * @param {Syllabus[]} allSyllabi - The complete list of all available syllabi.
+ * @returns {Syllabus | undefined} The matching syllabus, or undefined if not found.
+ */
+const getSyllabusForPersonnel = (personnel: Personnel, allSyllabi: Syllabus[]): Syllabus | undefined => {
+  return allSyllabi.find(s => s.track === personnel.track);
+};
+
+/**
+ * Retrieves all requirements applicable to a person by finding their syllabus.
+ *
+ * @param {Personnel} personnel - The person for whom to get requirements.
+ * @param {Syllabus[]} allSyllabi - The complete list of all available syllabi.
+ * @returns {Requirement[]} An array of requirements, or an empty array if no syllabus is found.
+ */
+const getRequirementsForPersonnel = (personnel: Personnel, allSyllabi: Syllabus[]): Requirement[] => {
+  const syllabus = getSyllabusForPersonnel(personnel, allSyllabi);
+  return syllabus ? syllabus.requirements : [];
+};
+
+export const syllabusLogicService = {
+  getSyllabusForPersonnel,
+  getRequirementsForPersonnel,
+  // ... other syllabus-related functions
+};

@@ -1,13 +1,10 @@
 <template>
   <div class="p-4 sm:p-6 lg:p-8">
-    <div class="sm:flex sm:items-center sm:justify-between">
-      <div class="sm:flex-auto">
-        <h1 class="text-2xl font-bold text-gray-900">Individual Reports</h1>
-        <p class="mt-2 text-sm text-gray-500">
-          Select an individual to view their detailed training report.
-        </p>
-      </div>
-      <div class="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
+    <ActionHeader
+      title="Individual Reports"
+      subtitle="Select an individual to view their detailed training report."
+    >
+      <template #actions>
         <router-link
           :to="{ name: 'Reports' }"
           type="button"
@@ -16,8 +13,8 @@
           <ArrowLeftIcon class="-ml-0.5 mr-1.5 h-5 w-5 text-gray-400" />
           Back to Reports Dashboard
         </router-link>
-      </div>
-    </div>
+      </template>
+    </ActionHeader>
     <div class="mt-8 flow-root">
       <div class="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
         <div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
@@ -122,10 +119,15 @@ import { computed } from "vue";
 import { usePersonnelStore } from "@/stores/personnelStore";
 import { ReadinessStatus } from "@/types/personnelTypes";
 import ProgressWheel from "@/components/ui/ProgressWheel.vue";
+import ActionHeader from "@/components/ui/ActionHeader.vue";
 import { ArrowLeftIcon } from "@heroicons/vue/20/solid";
 
 const personnelStore = usePersonnelStore();
-const personnel = computed(() => personnelStore.allPersonnelSortedByName);
+const personnel = computed(() =>
+  personnelStore.allPersonnelSortedByName.filter(
+    (person) => person.readinessAgainstDeadline !== undefined
+  )
+);
 
 const readinessStatusColor = (status?: ReadinessStatus) => {
   switch (status) {

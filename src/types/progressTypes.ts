@@ -6,6 +6,13 @@ import {
 import { type SharpSheetRow } from "./excelTypes"; // Assuming you'll define SharpSheetRow in an excelTypes.ts
 
 /**
+ * @deprecated
+ * This file contains types related to the old, single-source data architecture.
+ * These types are now used as components within the `DataSet` interface
+ * defined in `dataSetTypes.ts`. The application should not rely on these
+ * as representations of the global application state.
+ */
+/**
  * Represents the processed progress of an Upgrader against a specific Syllabus.
  */
 export interface UpgraderSyllabusProgress {

@@ -66,3 +66,22 @@ export interface Upgrader extends Identifiable, Named {
   eventsToMeetIdeal?: number; // Events needed to be on time for ideal target
   pqsToMeetIdeal?: number;
 }
+
+/**
+ * @interface PersonnelWithNoSyllabus
+ * Represents a person who was present in an imported report but for whom no
+ * corresponding active syllabus could be found in the application.
+ */
+export interface PersonnelWithNoSyllabus {
+  /**
+   * The full name of the person as it appeared in the source file.
+   * @type {string}
+   */
+  name: string;
+
+  /**
+   * The name of the track or PQS from the source file that could not be matched.
+   * @type {string}
+   */
+  unmatchedTrackName: string;
+}
